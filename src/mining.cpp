@@ -126,6 +126,11 @@ double poolDifficultyAtual(void) {
 }
 static uint32_t s_selftest_khs_original = 0;
 static uint32_t s_selftest_khs_fast = 0;
+static uint32_t s_selftest_khs_sw = 0;
+
+uint32_t swShaSelfTestKHs(void) {
+  return s_selftest_khs_sw;
+}
 
 void hwShaSelfTestKHs(uint32_t &original, uint32_t &fast) {
   original = s_selftest_khs_original;
@@ -696,10 +701,38 @@ void runStratumWorker(void *name) {
 
 //////////////////THREAD CALLS///////////////////
 
+// Nosso firmware: velocidade pura do SHA duplo em software (sem pool, sem fila), medida na partida
+static void swShaSelfTest()
+{
+  static uint8_t header[128];
+  for (int i = 0; i < 80; ++i)
+    header[i] = (uint8_t)(i * 37 + 11);
+  memset(header + 80, 0, 128 - 80);
+  header[80] = 0x80;
+  header[126] = 0x02;
+  header[127] = 0x80;
+  uint32_t mid[8];
+  uint32_t bake[16];
+  uint8_t hash[32];
+  nerd_mids(mid, header);
+  nerd_sha256_bake(mid, header + 64, bake);
+  const uint32_t n = 20000;
+  int64_t t0 = esp_timer_get_time();
+  for (uint32_t i = 0; i < n; ++i)
+  {
+    ((uint32_t*)(header + 64 + 12))[0] = i;
+    nerd_sha256d_baked(mid, header + 64, bake, hash);
+  }
+  int64_t t = esp_timer_get_time() - t0;
+  s_selftest_khs_sw = t > 0 ? (uint32_t)(n * 1000LL / t) : 0;
+  Serial.printf("[AUTOTESTE] SHA sw (C): %u kH/s num nucleo\n", s_selftest_khs_sw);
+}
+
 void minerWorkerSw(void * task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
   Serial.printf("[MINER] %d Started minerWorkerSw Task!\n", miner_id);
+  swShaSelfTest();
 
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;

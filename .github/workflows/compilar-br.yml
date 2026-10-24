@@ -32,6 +32,13 @@ jobs:
           find firmware -name 'NerdminerV2_*.bin' -exec cp {} saida/ \; || true
           ls -la saida
           pio run -e NerdminerV2 -t size | tail -5 || true
+      - name: Instrucoes de maquina do SHA de software
+        run: |
+          OBJ=~/.platformio/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-objdump
+          $OBJ -d --no-show-raw-insn .pio/build/NerdminerV2/firmware.elf > /tmp/tudo.s
+          awk '/<[^>]*nerd_sha256d_baked[^>]*>:/{f=1} f{print} f&&/^$/{exit}' /tmp/tudo.s > saida/sha256d_baked.s
+          echo "instrucoes: $(grep -cE '^ +[0-9a-f]+:' saida/sha256d_baked.s)"
+          grep -oE '^ +[0-9a-f]+:\s+[a-z0-9.]+' saida/sha256d_baked.s | awk '{print $2}' | sort | uniq -c | sort -rn | head -25
       - uses: actions/upload-artifact@v4
         with:
           name: NerdminerV2-BR

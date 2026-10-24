@@ -16,6 +16,7 @@
 #include "ShaTests/nerdSHA_HWTest.h"
 #include "timeconst.h"
 #include "painelWeb.h"
+#include <Preferences.h>
 
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
@@ -160,12 +161,22 @@ void setup()
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
+
+  // Nosso firmware: em qual nucleo roda cada motor (0 livre, 1 HW no nucleo 0, 2 HW no nucleo 1).
+  // Trocado pelo painel em /api/afinidade?modo=N para medir sem gravar de novo.
+  Preferences prefs;
+  prefs.begin("nerdbr", true);
+  uint8_t afinidade = prefs.getUChar("afin", 0);
+  prefs.end();
+  BaseType_t nucleoHw = afinidade == 1 ? 0 : (afinidade == 2 ? 1 : tskNO_AFFINITY);
+  BaseType_t nucleoSw = afinidade == 1 ? 1 : (afinidade == 2 ? 0 : tskNO_AFFINITY);
+  Serial.printf("[MINER] afinidade %u (HW %d, SW %d)\n", afinidade, (int)nucleoHw, (int)nucleoSw);
   #ifdef HARDWARE_SHA265
     #if defined(CONFIG_IDF_TARGET_ESP32)
     xTaskCreate(minerWorkerHw, "MinerHw-0", 3584, (void*)0, 3, &minerTask1); // Reduced for ESP32 classic
     //xTaskCreate(minerWorkerSw, "MinerSw-0", 5000, (void*)0, 1, &minerTask1); // Reduced for ESP32 classic
     #else
-    xTaskCreate(minerWorkerHw, "MinerHw-0", 4096, (void*)0, 3, &minerTask1);
+    xTaskCreatePinnedToCore(minerWorkerHw, "MinerHw-0", 4096, (void*)0, 3, &minerTask1, nucleoHw);
     #endif
   #else
     #if defined(CONFIG_IDF_TARGET_ESP32)
@@ -180,7 +191,7 @@ void setup()
   #if defined(CONFIG_IDF_TARGET_ESP32)
   xTaskCreate(minerWorkerSw, "MinerSw-1", 5000, (void*)1, 1, &minerTask2); // Reduced for ESP32 classic
   #else
-  xTaskCreate(minerWorkerSw, "MinerSw-1", 6000, (void*)1, 1, &minerTask2);
+  xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-1", 6000, (void*)1, 1, &minerTask2, nucleoSw);
   #endif
   esp_task_wdt_add(minerTask2);
 #endif

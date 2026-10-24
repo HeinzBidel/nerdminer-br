@@ -665,7 +665,7 @@ void painelAtualiza(void)
   j += ",\"rssi\":" + String(WiFi.RSSI()) + ",\"ip\":" + jsonTexto(WiFi.localIP().toString()) + ",\"ssid\":" + jsonTexto(WiFi.SSID());
   double khsHw = 0.0, khsSw = 0.0;
   velocidadePorMotor(khsHw, khsSw);
-  j += ",\"khsHw\":" + String(khsHw, 1) + ",\"khsSw\":" + String(khsSw, 1) + ",\"difPool\":" + String(poolDifficultyAtual(), 6);
+  j += ",\"khsHw\":" + String(khsHw, 1) + ",\"khsSw\":" + String(khsSw, 1) + ",\"difPool\":" + String(poolDifficultyAtual(), 6) + ",\"khsSwTeste\":" + String(swShaSelfTestKHs());
   j += ",\"shaRapido\":" + String(hwShaFastPath() ? "true" : "false") + ",\"khsOriginal\":" + String(khsOriginal) + ",\"khsRapido\":" + String(khsRapido);
   j += ",\"pool\":{\"end\":" + jsonTexto(activePoolAddress()) + ",\"porta\":" + String(activePoolPort());
   j += ",\"reserva\":" + String(activePoolIndex() == 1 ? "true" : "false") + ",\"mineradores\":" + String(pData.workersCount);

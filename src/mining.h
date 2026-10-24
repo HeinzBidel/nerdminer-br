@@ -35,6 +35,7 @@ void hwShaSelfTestKHs(uint32_t &original, uint32_t &fast); // kH/s medidos no au
 int poolQuedasUltimaHora(void);  // quedas da conexao com a pool na ultima hora
 void velocidadePorMotor(double &khsHw, double &khsSw); // kH/s do SHA em hardware e do SHA em software
 double poolDifficultyAtual(void);  // dificuldade que a pool mandou (mining.set_difficulty)
+uint32_t swShaSelfTestKHs(void);  // kH/s do SHA em software medido na partida
 
 void resetStat();
 
