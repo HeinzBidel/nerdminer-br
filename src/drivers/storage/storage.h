@@ -12,6 +12,12 @@
 #define DEFAULT_SSID		"HanSoloAP"
 #endif
 #define DEFAULT_WIFIPW		"MineYourCoins"
+// Nosso firmware: rede de ajuste aberta, como o Heinz conhece (some depois de salvar e o portal fecha em 3 min)
+#ifdef AJUSTE_SEM_SENHA
+#define AJUSTE_WIFIPW		NULL
+#else
+#define AJUSTE_WIFIPW		DEFAULT_WIFIPW
+#endif
 #define DEFAULT_POOLURL		"public-pool.io"
 #define DEFAULT_POOLPASS	"x"
 #define DEFAULT_WALLETID	"yourBtcAddress"

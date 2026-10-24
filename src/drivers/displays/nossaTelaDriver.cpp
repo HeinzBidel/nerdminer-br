@@ -25,12 +25,12 @@
 #define HEIGHT 170
 #define NUM_TELAS 8
 
-// Cores do mockup (RGB565)
-#define COR_FUNDO    0x0884  // #0A1220
-#define COR_CARTAO   0x08C5  // #0F1B2D
-#define COR_BORDA    0x2189  // #22324A
+// Cores do mockup, com fundo preto (RGB565)
+#define COR_FUNDO    0x0000  // preto (pedido do Heinz, 24/10)
+#define COR_CARTAO   0x0000  // preto
+#define COR_BORDA    0x2965  // #2E2E2E cinza neutro
 #define COR_TEXTO    0xFFFF
-#define COR_SUAVE    0x9D99  // #9FB0C8
+#define COR_SUAVE    0xA514  // #A3A3A3 cinza neutro
 #define COR_LARANJA  0xF483  // #F7931A
 #define COR_OURO     0xFE09  // #FFC14D
 #define COR_VERDE    0x262B  // #22C55E
@@ -416,13 +416,21 @@ void nossaTela_SetupScreen(void)
   String rede = wifiAjusteNome();
   escreve("1. ENTRE NA REDE WI-FI", 12, 34, 10, COR_SUAVE);
   escreve(rede, 12, 48, 15, COR_LARANJA);
+#ifdef AJUSTE_SEM_SENHA
+  escreve("rede aberta, sem senha", 12, 68, 12, COR_TEXTO);
+#else
   escreve(String("senha ") + DEFAULT_WIFIPW, 12, 68, 12, COR_TEXTO);
+#endif
   escreve("2. A pagina de ajuste abre", 12, 90, 11, COR_SUAVE);
   escreve("sozinha; se nao abrir, va em", 12, 104, 11, COR_SUAVE);
   escreve("192.168.4.1", 12, 120, 15, COR_TEXTO);
   escreve("3. Informe Wi-Fi, carteira e pool", 12, 144, 11, COR_SUAVE);
 
+#ifdef AJUSTE_SEM_SENHA
+  desenhaQR(String("WIFI:T:nopass;S:") + rede + ";;", 196, 32, 118);
+#else
   desenhaQR(String("WIFI:T:WPA;S:") + rede + ";P:" + DEFAULT_WIFIPW + ";;", 196, 32, 118);
+#endif
   background.pushSprite(0, 0);
 }
 

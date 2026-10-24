@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NerdMiner v2 BR</title>
 <style>
-:root{--fundo:#0A1220;--cartao:#0F1B2D;--borda:#22324A;--texto:#F4F7FB;--suave:#9FB0C8;--laranja:#F7931A;--ouro:#FFC14D;--verde:#22C55E;--amarelo:#FACC15;--vermelho:#EF4444;--azul:#3B82F6;--azul2:#60A5FA;--roxo:#8B5CF6}
+:root{--fundo:#000000;--cartao:#0B0B0B;--borda:#2A2A2A;--texto:#F5F5F5;--suave:#A3A3A3;--laranja:#F7931A;--ouro:#FFC14D;--verde:#22C55E;--amarelo:#FACC15;--vermelho:#EF4444;--azul:#3B82F6;--azul2:#60A5FA;--roxo:#8B5CF6}
 *{box-sizing:border-box}
 body{margin:0;background:var(--fundo);color:var(--texto);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 a{color:inherit;text-decoration:none}
@@ -17,7 +17,7 @@ a{color:inherit;text-decoration:none}
 .corpo{display:flex;flex-wrap:wrap}
 nav{flex:0 0 200px;padding:16px 10px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--borda);min-height:calc(100vh - 62px)}
 nav a{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;color:var(--suave);font-weight:600;min-height:44px}
-nav a:hover,nav a.ativo{background:#13233A;color:var(--texto)}
+nav a:hover,nav a.ativo{background:#171717;color:var(--texto)}
 nav a.ativo svg{stroke:var(--verde)}
 nav .rodape{margin-top:auto;padding:14px;font-size:13px;color:var(--suave)}
 main{flex:999 1 560px;min-width:0;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;align-content:start}
@@ -181,7 +181,7 @@ let recordeVisto = null, recordeAte = 0;
 
 function desenhaGrafico(h) {
   const g = $('grafico');
-  if (!h || h.length < 2) { g.innerHTML = '<text x="100" y="45" fill="#9FB0C8" font-size="12" text-anchor="middle">medindo...</text>'; return; }
+  if (!h || h.length < 2) { g.innerHTML = '<text x="100" y="45" fill="#A3A3A3" font-size="12" text-anchor="middle">medindo...</text>'; return; }
   let mn = Math.min(...h), mx = Math.max(...h);
   if (mx - mn < 2) { mx += 1; mn = Math.max(0, mn - 1); }
   const pts = h.map((v, i) => `${(i * 200 / 59).toFixed(1)},${(76 - (v - mn) * 70 / (mx - mn)).toFixed(1)}`);
