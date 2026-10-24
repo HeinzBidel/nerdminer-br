@@ -1,233 +1,124 @@
-# NerdSoloMiner
+# Nerd Miner BR
+
+Firmware em português para o **NerdMiner v2 (LilyGO T-Display S3)**. É um fork do
+[NerdMiner v2](https://github.com/BitMaker-hub/NerdMiner_v2) (licença MIT) com interface própria, pool reserva,
+preço em reais, painel na rede de casa e o SHA-256 espremido até perto do limite do chip.
 
-**The NerdSoloMiner v2**
+O NerdMiner é uma **loteria de Bitcoin**: ele tenta achar um bloco sozinho. A chance é minúscula, e este
+firmware diz isso na tela, com a conta (veja «A conta honesta», abaixo).
 
-This is a **free and open source project** that let you try to reach a bitcoin block with a small piece of hardware.
+## Baixar e gravar (pelo Chrome, sem instalar nada)
+
+1. Baixe `NerdminerV2_factory.bin` na página de [Releases](../../releases).
+2. Ligue a placa no computador com um cabo USB **de dados**.
+3. Abra **https://espressif.github.io/esptool-js/** no Chrome, Edge ou Brave e clique em **Connect**.
+   Escolha a porta *USB JTAG/serial debug unit*.
+4. **Primeira vez:** clique em **Erase Flash** e espere terminar (uns 40 s).
+   **Atualização:** pule este passo; o Wi-Fi, a carteira e a pool continuam salvos.
+5. Em *Flash Address* escreva **`0x0`**, escolha o arquivo `NerdminerV2_factory.bin` e clique em **Program**.
+6. Quando aparecer *Hash of data verified*, tire o cabo e ligue de novo.
+
+Para voltar a outro firmware, grave o `.bin` dele do mesmo jeito.
+
+## Configurar
 
-The main aim of this project is to let you **learn more about minery** and to have a beautiful piece of hardware in your desktop.
+1. Na primeira vez, a tela mostra **AJUSTES** com um QR code. Aponte o celular: ele entra na rede
+   `NerdMinerAP` (aberta, sem senha) e abre a página de ajuste. Se não abrir, vá em `192.168.4.1`.
+2. Preencha:
 
-Original project https://github.com/valerio-vaccaro/HAN
+   | Campo | Valor sugerido |
+   |---|---|
+   | Pool url / port | `public-pool.io` / `3333` |
+   | Pool reserva / porta | `pool.nerdminers.org` / `3333` |
+   | Your BTC address | o seu endereço (pode acrescentar `.nome` para ver o aparelho no site da pool) |
+   | TimeZone | `-3` (Brasília) |
 
-![image](images/bgNerdMinerV2.png)
+3. Salve. A rede de ajuste some e o aparelho entra no seu Wi-Fi.
 
-## Requirements
+Para mudar depois, ligue o aparelho segurando a tecla de cima.
 
-- TTGO T-Display S3 or any supported boards (check Build tutorial 👇)
-- 3D BOX [here](3d_files/)
+## O que muda em relação ao NerdMiner v2
 
-### Project description
+- **Interface própria, pixelada** (fonte de 8 bits, estilo videogame antigo), com 8 telas: Minerando, Sorte,
+  Pool, Rede, Taxas, Relógio, Aparelho e Ajustes (com QR do painel). Tecla de cima troca de tela; tecla de
+  baixo liga/desliga a tela, dois cliques giram.
+- **Painel na rede de casa:** `http://<IP do aparelho>/` mostra tudo no celular ou no computador.
+  Os dados saem em JSON em `/api/estado`.
+- **Pool reserva:** se a principal falhar 3 vezes ou ficar 10 min sem mandar trabalho, troca sozinha e
+  depois volta.
+- **Preço em reais** com a variação de 24 h, fuso de Brasília e textos em português.
+- **Melhor hash** achado pelo próprio aparelho (o original só contava o que a pool aceitava).
+- **Velocidade de cada motor** (SHA em hardware e em software) e tempo estimado por parte aceita.
+- **Correções:** o estado «minerando» nunca era ligado no original; a rede de ajuste abre sem senha;
+  um `printf` recebia `String` onde esperava texto.
 
-**ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with [public-pool.io](https://web.public-pool.io) (where Nerdminers are supported).
+## Desempenho: medido, não prometido
 
-This project was initialy developed using ESP32-S3, but currently support other boards. It uses WifiManager to modify miner settings and save them to SPIFF.
-The microMiner comes with several screens to monitor it's working procedure and also to show you network mining stats.
-Currently includes:
+Tudo medido na mesma placa (T-Display S3, ESP32-S3 a 240 MHz), na mesma pool, em 24/10/2026.
 
-- NerdMiner Screen > Mining data of Nerdminer
-- ClockMiner Screen > Fashion style clock miner
-- GlobalStats Screen > Global minery stats and relevant data
+| O que foi feito | Antes | Depois |
+|---|---|---|
+| SHA em hardware: deixar de reescrever 6 registradores que valem zero nos dois blocos do hash duplo | 215–219 kH/s | 256–259 kH/s (**+18 a +20%**) |
+| Tela: trocar a fonte suavizada (FreeType) pela fonte de 8 bits | ~262 kH/s no total | **287 kH/s** no total (~+10%) |
 
-This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi stuff.
-Every time an stratum job notification is received miner update its current work to not create stale shares.
+Hoje o aparelho faz **287 kH/s** minerando (hardware 242 + software 38).
 
-**IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
+**Estamos a ~3% do limite do chip.** Os dois motores, medidos sozinhos no autoteste da partida, somam
+256 + 41 = **~297 kH/s**. Esse é o teto desta placa. Os 287 kH/s minerando são 96,6% disso; o resto se
+perde dividindo o processador com o Wi-Fi, a pool e a tela.
 
-**_Current project is still in developement and more features will be added_**
+O caminho rápido do SHA em hardware **não é ligado às cegas**: a cada partida, um autoteste compara os dois
+caminhos com o SHA-256 do mbedtls, hash por hash, mede a velocidade de cada um e só liga o rápido se ele
+estiver certo e for mais veloz. O resultado aparece na serial (`[AUTOTESTE]`) e na tela Aparelho.
 
-## Build Tutorial
+### E assembly? E linguagem de máquina?
 
-### Hardware requirements
+Foi investigado e medido antes de escrever uma linha:
 
-- LILYGO T-Display S3 (original one) or any other supported boards
-- 3D BOX [here](3d_files/)
+- **Linguagem de máquina e assembly são a mesma coisa** (cada instrução de assembly é uma instrução do chip).
+  Uma linguagem nova também não ajudaria: no fim ela vira as mesmas instruções.
+- **Motor de hardware:** quem calcula o SHA é um circuito do chip. O tempo vai em escrever registradores e
+  esperar o circuito; o compilador já gera essas mesmas instruções. Assembly não ganha nada aqui. O ganho
+  veio de escrever **menos** registradores (+18 a +20%, acima).
+- **Motor de software:** o compilador gerou **5.843 instruções** para o SHA duplo, cerca de **47 por
+  rodada**. A conta do mínimo teórico no Xtensa LX7 dá ~46. As rotações já usam a forma mais curta do chip
+  (`ssai` + `src`) e quase nada vai para a memória por falta de registrador. Assembly à mão ganharia no
+  máximo 2 a 5% nesse motor, ou seja, **menos de 1% no total**.
+- **Instruções vetoriais do S3 (PIE):** a soma vetorial `EE.VADDS` **satura** (trava no máximo) em vez de
+  dar a volta. O SHA-256 precisa da soma que dá a volta, então esse caminho não serve para SHA-256.
 
-#### Current Supported Boards
+O código original já usava os truques de algoritmo conhecidos (midstate, 3 rodadas pré-calculadas por
+trabalho, desistir do hash na rodada 60 quando ele já não pode servir). O que sobrou de ganho estava no
+hardware e na tela, e foi o que este firmware fez.
 
-- LILYGO T-Display S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_Ddy7739))
-- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DCzlUiX))
-- LILYGO T-QT pro ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DBQIr43))
-- LILYGO T-Display 1.14 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DEqGvSJ))
-- LILYGO T-Display S3 AMOLED ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmOIK6j))
-- LILYGO T-Display S3 AMOLED Touch ([Board Info](https://www.lilygo.cc/products/t-display-s3-amoled?variant=43532279939253))
-- LILYGO T-Dongle S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmQCPyj))
-- ESP32-2432S028R 2,8" ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
-- ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
-- M5-StampS3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DevABY3) / Dev support: @gyengus)
-- Wemos Lolin S3 Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/lolin_s3_mini.html))
-- Wemos Lolin S2 Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/lolin_s2_mini.html))
-- Weact S3 Mini ([Board Info](https://github.com/WeActStudio/WeActStudio.ESP32S3-MINI))
-- Weact ESP32-D0WD-V3 ([Board Info](https://github.com/WeActStudio/WeActStudio.ESP32CoreBoard))
-- ESP32-S3 Devkit ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitm-1.html))
-- ESP32-C3 Devkit ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/esp32-c3-devkitm-1.html))
-- ESP32-C3 Super Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/seeed_xiao_esp32c3.html))
-- Waveshare ESP32-S3-GEEK ([Board Info](https://www.waveshare.com/wiki/ESP32-S3-GEEK))
-- LILYGO T-HMI ([Aliexpress link\*](https://s.click.aliexpress.com/e/_oFII4s2)) / Dev support: @cosmicpsyop
-- ESP32-C3 0.42 Inch OLED ([Aliexpress link\*](https://s.click.aliexpress.com/e/_oDmT4Id) / Dev support: @mrthiti / ⚡ wallet@thiti.dev)
-- ESP32-S3 0.42 Inch OLED ([Aliexpress link\*](https://s.click.aliexpress.com/e/_oFIMUoh) / Dev support: @mrthiti / ⚡ wallet@thiti.dev)
+## A conta honesta
 
-\*Affiliate links
+A chance de achar um bloco é `velocidade × segundos do ano ÷ (dificuldade × 2^32)`. Com 287 kH/s e a
+dificuldade de outubro de 2026 (~140,6 T), dá **1 chance em ~67 bilhões por ano**. A tela Sorte faz essa conta
+ao vivo.
 
-### Flash firmware
+A public-pool fixa a dificuldade das partes em 1. Com isso sai **uma parte aceita a cada ~4 horas**, o que é
+normal e não muda a chance de achar um bloco.
 
-#### microMiners Flashtool [Recommended]
+## Para quem desenvolve
 
-Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
+- Compila com PlatformIO: `pio run -e NerdminerV2`. Cada envio ao ramo `mac/nosso-firmware` compila sozinho
+  no GitHub Actions e deixa os `.bin` como artefato.
+- Opções de build no ambiente `NerdminerV2` do `platformio.ini`: `BRASIL`, `NOSSA_TELA`, `PAINEL_WEB`,
+  `AJUSTE_SEM_SENHA`, `SCREEN_FEES_ENABLE`, `SCREEN_WORKERS_ENABLE`.
+- `/api/afinidade?modo=0|1|2` troca o núcleo de cada motor (0 livre, 1 hardware no núcleo 0, 2 hardware no
+  núcleo 1) e reinicia. Medido em 24/10: 287 / 290 / 282 kH/s, diferenças dentro do ruído (±2%). O padrão
+  continua 0 (livre).
+- A página do painel fica em `web/painel.html`; `python3 web/gerar_header.py` a embute em `src/painel_html.h`.
+- O QR code é gerado por um codificador próprio e pequeno (`src/qrMini.cpp`: modo byte, correção L,
+  versões 1 a 4), conferido com o leitor de QR do macOS.
 
-1. Get a TTGO T-display S3 or any other supported board
-1. Go to NM2 flasher online: https://flasher.bitronics.store/ (recommend via Google Chrome incognito mode)
+## Como foi feito
 
-#### Standard tool
+Desenvolvido por Heinz Bidel com a ajuda do Claude (Anthropic): análise do código original, autotestes no
+próprio aparelho, compilação no GitHub Actions, gravação pelo Chrome e cada mudança medida antes e depois.
 
-Create your own miner using the online firwmare flash tool **ESPtool** and one of the **binary files** that you will find in the `bin` folder.
-If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
+## Licença e créditos
 
-1. Get a TTGO T-display S3 or any supported board
-1. Download this repository
-1. Go to ESPtool online: https://espressif.github.io/esptool-js/
-1. Load the firmware with the binary from one of the sub-folders of `bin` corresponding to your board.
-1. Plug your board and select each file from the sub-folder (`.bin` files).
-
-### Update firmware
-
-Update NerdMiner firmware following same flashing steps but only using the file 0x10000_firmware.bin.
-
-#### Build troubleshooting
-
-1. Online [ESP Tool](https://espressif.github.io/esptool-js/) works with chrome, chromium, brave
-1. ESPtool recommendations: use 115200bps
-1. Build errors > If during firmware download upload stops, it's recommended to enter the board in boot mode. Unplug cable, hold right bottom button and then plug cable. Try programming
-1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made.
-1. In case of ESP32-WROOM Boards, could be necessary to put your board on boot mode. Hold boot button, press reset button and then program.
-
-## NerdMiner configuration
-
-After programming, you will only need to setup your Wifi and BTC address.
-
-Note: when BTC address of your selected wallet is not provided, mining will not be started.
-
-#### Wifi Accesspoint
-
-
-1. Connect to NerdMinerAP
-   - AP: NerdMinerAP
-   - PASS: MineYourCoins
-1. Set up your Wifi Network
-1. Add your BTC address
-1. Change the password if needed
-
-   - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
-
-
-#### SD card (if available)
-
-1. Format a SD card using Fat32.
-1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:
-```
-{
-  "SSID": "myWifiSSID",
-  "WifiPW": "myWifiPassword",
-  "PoolUrl": "public-pool.io",
-  "PoolPort": 3333,
-  "PoolPassword": "x",
-  "BtcWallet": "walletID",
-  "Timezone": 2,
-  "SaveStats": false
-}
-```
-
-1. Insert the SD card.
-1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
-1. Power down to remove the SD card. It is not needed for mining.
-
-#### Pool selection
-
-Recommended low difficulty share pools:
-
-| Pool URL          | Port  | Web URL                    | Status                                                             |
-| ----------------- | ----- | -------------------------- | ------------------------------------------------------------------ |
-| public-pool.io    | 3333 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
-| pool.nerdminers.org    | 3333  | https://nerdminers.org     | The official Nerdminer pool site - Mantained by @golden-guy |
-| pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
-| pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
-| pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
-| pool.stompi.de  | 3333  | http://web.stompi.de  | Mantained by @odinstar - public-pool fork      |
-|pool.solomining.de| 3333  | https://pool.solomining.de/ | Mantained by https://x.com/solo_mining |
-
-Other standard pools not compatible with low difficulty share:
-
-| Pool URL                 | Port | Web URL                                   |
-| ------------------------ | ---- | ----------------------------------------- |
-| solo.ckpool.org          | 3333 | https://solo.ckpool.org/                  |
-| btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
-| eu.stratum.slushpool.com | 3333 | https://braiins.com/pool                  |
-
-### Buttons
-
-#### One button devices:
-
-- One click > change screen.
-- Double click > change screen orientation.
-- Tripple click > turn the screen off and on again.
-- Hold 5 seconds > **reset the configurations and reboot** your NerdMiner.
-
-#### Two button devices:
-
-With the USB-C port to the right:
-
-**TOP BUTTON**
-
-- One click > change screen.
-- Hold 5 seconds > top right button to **reset the configurations and reboot** your NerdMiner.
-- Hold and power up > enter **configuration mode** and edit current config via Wifi. You could change your settings or verify them.
-
-**BOTTOM BUTTON**
-
-- One Click > turn the screen off and on again
-- Double click > change orientation (default is USB-C to the right)
-
-#### Build video
-
-[![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
-
-## Developers
-
-### Project guidelines
-
-- Current project was adapted to work with PlatformIO
-- Current project works with ESP32-S3 and ESP32-wroom.
-- Partition squeme should be build as huge app
-- All libraries needed shown on platform.ini
-
-### Job done
-
-- [x] Move project to platformIO
-- [x] Bug rectangle on screen when 1milion shares
-- [x] Bug memory leaks
-- [x] Bug Reboots when received JSON contains some null values
-- [x] Implement midstate sha256
-- [x] Bug Wificlient DNS unresolved on Wifi.h
-- [x] Code refactoring
-- [x] Add blockHeight to screen
-- [x] Add clock to show current time
-- [x] Add new screen with global mining stats
-- [x] Add pool support for low difficulty miners
-- [x] Add best difficulty on miner screen
-- [x] Add suport to standard ESP32 dev-kit / ESP32-WROOM
-- [x] Code changes to support adding multiple boards
-- [x] Add support to TTGO T-display 1.14
-- [x] Add support to Amoled
-
-### In process
-
-- [ ] Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
-- [ ] Create new screen like clockMiner but with BTC price
-- [ ] Add support to control BM1397
-- [ ] Add password field in web configuration form
-
-### Donations/Project contributions
-
-If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or using one of the affiliate links above.
-
-If you want to order a fully assembled Nerdminer you can contribute to my job at 🛒[bitronics.store](https://bitronics.store)🛒
-
-Enjoy
+MIT, como o original. Créditos ao [BitMaker](https://github.com/BitMaker-hub/NerdMiner_v2) e a todos os
+colaboradores do NerdMiner v2; o README original está em [README-original.md](README-original.md).
