@@ -1,0 +1,38 @@
+name: Compilar Nerd Miner BR
+
+on:
+  push:
+    branches:
+      - mac/nosso-firmware
+  workflow_dispatch:
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar PlatformIO
+        run: pip install --upgrade platformio
+      - name: Compilar NerdminerV2 (T-Display S3)
+        run: pio run -e NerdminerV2
+      - name: Juntar os .bin
+        run: |
+          mkdir -p saida
+          cp .pio/build/NerdminerV2/bootloader.bin .pio/build/NerdminerV2/partitions.bin .pio/build/NerdminerV2/firmware.bin saida/
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin saida/ || true
+          find firmware -name 'NerdminerV2_*.bin' -exec cp {} saida/ \; || true
+          ls -la saida
+          pio run -e NerdminerV2 -t size | tail -5 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NerdminerV2-BR
+          path: saida/
