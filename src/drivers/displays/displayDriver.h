@@ -34,6 +34,7 @@ extern DisplayDriver noDisplayDriver;
 extern DisplayDriver ledDisplayDriver;
 extern DisplayDriver oled042DisplayDriver;
 extern DisplayDriver tDisplayDriver;
+extern DisplayDriver nossaTelaDriver;
 extern DisplayDriver amoledDisplayDriver;
 extern DisplayDriver dongleDisplayDriver;
 extern DisplayDriver esp32_2432S028RDriver;

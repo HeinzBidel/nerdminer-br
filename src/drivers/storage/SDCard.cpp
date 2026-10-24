@@ -99,7 +99,7 @@ bool SDCard::loadConfigFile(TSettings* Settings)
             if (configFile)
             {
                 cardBusy_ = true;
-                StaticJsonDocument<512> json;
+                StaticJsonDocument<768> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
                 cardBusy_ = false;
@@ -119,6 +119,9 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
+                    Settings->PoolAddress2 = json[JSON_KEY_POOLURL2] | Settings->PoolAddress2;
+                    if (json.containsKey(JSON_KEY_POOLPORT2))
+                        Settings->PoolPort2 = json[JSON_KEY_POOLPORT2].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_KEY_STATS2NV))

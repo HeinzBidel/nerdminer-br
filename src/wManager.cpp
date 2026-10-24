@@ -213,6 +213,12 @@ void init_WifiManager()
     // Text box (Number) - 7 characters maximum
     WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
 
+    // Nosso firmware: pool reserva (deixe vazia para nao usar)
+    WiFiManagerParameter pool2_text_box("Poolurl2", "Pool reserva (opcional)", Settings.PoolAddress2.c_str(), 80);
+    char convertedValue2[6];
+    sprintf(convertedValue2, "%d", Settings.PoolPort2);
+    WiFiManagerParameter port2_text_box_num("Poolport2", "Porta da pool reserva", convertedValue2, 7);
+
     // Text box (String) - 80 characters maximum
     //WiFiManagerParameter password_text_box("Poolpassword", "Pool password (Optional)", Settings.PoolPassword, 80);
 
@@ -238,6 +244,8 @@ void init_WifiManager()
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
+  wm.addParameter(&pool2_text_box);
+  wm.addParameter(&port2_text_box_num);
   wm.addParameter(&password_text_box);
   wm.addParameter(&addr_text_box);
   wm.addParameter(&time_text_box_num);
@@ -276,6 +284,8 @@ void init_WifiManager()
             Serial.println("failed to connect and hit timeout");
             Settings.PoolAddress = pool_text_box.getValue();
             Settings.PoolPort = atoi(port_text_box_num.getValue());
+            Settings.PoolAddress2 = pool2_text_box.getValue();
+            Settings.PoolPort2 = atoi(port2_text_box_num.getValue());
             strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
@@ -309,6 +319,8 @@ void init_WifiManager()
                 // Save new config            
                 Settings.PoolAddress = pool_text_box.getValue();
                 Settings.PoolPort = atoi(port_text_box_num.getValue());
+                Settings.PoolAddress2 = pool2_text_box.getValue();
+                Settings.PoolPort2 = atoi(port2_text_box_num.getValue());
                 strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
                 strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
                 Settings.Timezone = atoi(time_text_box_num.getValue());
@@ -346,6 +358,8 @@ void init_WifiManager()
 
         //Convert the number value
         Settings.PoolPort = atoi(port_text_box_num.getValue());
+        Settings.PoolAddress2 = pool2_text_box.getValue();
+        Settings.PoolPort2 = atoi(port2_text_box_num.getValue());
         Serial.print("portNumber: ");
         Serial.println(Settings.PoolPort);
 
@@ -388,6 +402,8 @@ void init_WifiManager()
 
     //Convert the number value
     Settings.PoolPort = atoi(port_text_box_num.getValue());
+    Settings.PoolAddress2 = pool2_text_box.getValue();
+    Settings.PoolPort2 = atoi(port2_text_box_num.getValue());
     Serial.print("portNumber: ");
     Serial.println(Settings.PoolPort);
 

@@ -1,6 +1,6 @@
 #include "displayDriver.h"
 
-#ifdef T_DISPLAY
+#if defined(T_DISPLAY) && !defined(NOSSA_TELA)
 
 #include <TFT_eSPI.h>
 #include "media/images_320_170.h"

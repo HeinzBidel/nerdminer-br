@@ -28,9 +28,11 @@ bool nvMemory::saveConfig(TSettings* Settings)
         Serial.println(F("SPIFS: Saving configuration."));
 
         // Create a JSON document
-        StaticJsonDocument<512> json;
+        StaticJsonDocument<768> json;
         json[JSON_SPIFFS_KEY_POOLURL] = Settings->PoolAddress;
         json[JSON_SPIFFS_KEY_POOLPORT] = Settings->PoolPort;
+        json[JSON_SPIFFS_KEY_POOLURL2] = Settings->PoolAddress2;
+        json[JSON_SPIFFS_KEY_POOLPORT2] = Settings->PoolPort2;
         json[JSON_SPIFFS_KEY_POOLPASS] = Settings->PoolPassword;
         json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
         json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
@@ -83,7 +85,7 @@ bool nvMemory::loadConfig(TSettings* Settings)
             if (configFile)
             {
                 Serial.println("SPIFS: Loading config file");
-                StaticJsonDocument<512> json;
+                StaticJsonDocument<768> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
                 serializeJsonPretty(json, Serial);
@@ -95,6 +97,9 @@ bool nvMemory::loadConfig(TSettings* Settings)
                     strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
+                    Settings->PoolAddress2 = json[JSON_SPIFFS_KEY_POOLURL2] | Settings->PoolAddress2;
+                    if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT2))
+                        Settings->PoolPort2 = json[JSON_SPIFFS_KEY_POOLPORT2].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))

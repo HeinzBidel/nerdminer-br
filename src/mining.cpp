@@ -17,6 +17,7 @@
 #include <list>
 #include <map>
 #include "mbedtls/sha256.h"
+#include "esp_timer.h"
 #include "i2c_master.h"
 
 //10 Jobs per second
@@ -74,6 +75,63 @@ int saveIntervals[7] = {5 * 60, 15 * 60, 30 * 60, 1 * 3600, 3 * 3600, 6 * 3600, 
 int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
 int currentIntervalIndex = 0;
 
+// Nosso firmware: pool principal (0) ou reserva (1).
+// Depois de POOL_FAILS_TO_SWITCH falhas seguidas, troca para a outra, se houver reserva.
+// Quando a reserva cai, a proxima tentativa volta para a principal.
+#define POOL_FAILS_TO_SWITCH 3
+static uint8_t s_pool_index = 0;
+static uint8_t s_pool_fails = 0;
+static bool s_pool_was_up = false; //Current pool got connected at least once
+
+uint8_t activePoolIndex(void) {
+  return s_pool_index;
+}
+
+// Caminho do SHA em hardware escolhido pelo autoteste da partida (false = caminho original)
+static bool s_hw_skip_zeros = false;
+static uint32_t s_selftest_khs_original = 0;
+static uint32_t s_selftest_khs_fast = 0;
+
+void hwShaSelfTestKHs(uint32_t &original, uint32_t &fast) {
+  original = s_selftest_khs_original;
+  fast = s_selftest_khs_fast;
+}
+
+bool hwShaFastPath(void) {
+  return s_hw_skip_zeros;
+}
+
+const String &activePoolAddress(void) {
+  return s_pool_index == 0 ? Settings.PoolAddress : Settings.PoolAddress2;
+}
+
+int activePoolPort(void) {
+  return s_pool_index == 0 ? Settings.PoolPort : Settings.PoolPort2;
+}
+
+static void switchPool(uint8_t index) {
+  if (index == s_pool_index)
+    return;
+  s_pool_index = index;
+  s_pool_fails = 0;
+  s_pool_was_up = false;
+  serverIP = IPAddress(1, 1, 1, 1); //Force DNS resolution of the new pool
+  Serial.printf("[POOL] Trocando para a pool %s: %s:%d\n", index == 0 ? "principal" : "reserva",
+                activePoolAddress().c_str(), activePoolPort());
+}
+
+static void poolFailed(uint8_t weight) {
+  s_pool_fails += weight;
+  if (s_pool_fails < POOL_FAILS_TO_SWITCH)
+    return;
+  if (s_pool_index == 0 && Settings.PoolAddress2.length() > 0 && Settings.PoolPort2 > 0)
+    switchPool(1);
+  else if (s_pool_index == 1)
+    switchPool(0);
+  else
+    s_pool_fails = 0;
+}
+
 bool checkPoolConnection(void) {
   
   if (client.connected()) {
@@ -82,22 +140,29 @@ bool checkPoolConnection(void) {
   
   isMinerSuscribed = false;
 
+  // A reserva estava conectada e caiu: tenta voltar para a principal
+  if (s_pool_index == 1 && s_pool_was_up)
+    switchPool(0);
+
   Serial.println("Client not connected, trying to connect..."); 
   
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
+    WiFi.hostByName(activePoolAddress().c_str(), serverIP);
+    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString().c_str());
   }
 
   //Try connecting pool IP
-  if (!client.connect(serverIP, Settings.PoolPort)) {
-    Serial.println("Imposible to connect to : " + Settings.PoolAddress);
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+  if (!client.connect(serverIP, activePoolPort())) {
+    Serial.println("Imposible to connect to : " + activePoolAddress());
+    WiFi.hostByName(activePoolAddress().c_str(), serverIP);
+    Serial.printf("Resolved DNS got: %s\n", serverIP.toString().c_str());
+    poolFailed(1);
     return false;
   }
 
+  s_pool_fails = 0;
+  s_pool_was_up = true;
   return true;
 }
 
@@ -313,6 +378,7 @@ void runStratumWorker(void *name) {
         last_job_time = time_now;
       if (time_now >= last_job_time + 10*60*1000)  //10minutes without job
       {
+        poolFailed(POOL_FAILS_TO_SWITCH); //Pool alive but useless: switch now
         client.stop();
         isMinerSuscribed=false;
         MiningJobStop(job_pool, s_submition_map);
@@ -653,6 +719,10 @@ void minerWorkerSw(void * task_id)
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 
+// Nosso firmware: as palavras 9 a 14 do bloco valem zero nos dois blocos do hash duplo.
+// Com SKIP_ZEROS = true elas nao sao reescritas a cada nonce; o autoteste da partida
+// (hwShaSelfTest) prova que o periferico as preserva antes de ligar esse caminho.
+template <bool SKIP_ZEROS>
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, uint32_t nonce)
 {
     uint32_t *data_words = (uint32_t *)input_text;
@@ -683,16 +753,20 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
     REG_WRITE(&reg_addr_buf[6], 0x00000000);
     REG_WRITE(&reg_addr_buf[7], 0x00000000);
     REG_WRITE(&reg_addr_buf[8], 0x00000000);
-    REG_WRITE(&reg_addr_buf[9], 0x00000000);
-    REG_WRITE(&reg_addr_buf[10], 0x00000000);
-    REG_WRITE(&reg_addr_buf[11], 0x00000000);
-    REG_WRITE(&reg_addr_buf[12], 0x00000000);
-    REG_WRITE(&reg_addr_buf[13], 0x00000000);
-    REG_WRITE(&reg_addr_buf[14], 0x00000000);
+    if (!SKIP_ZEROS)
+    {
+      REG_WRITE(&reg_addr_buf[9], 0x00000000);
+      REG_WRITE(&reg_addr_buf[10], 0x00000000);
+      REG_WRITE(&reg_addr_buf[11], 0x00000000);
+      REG_WRITE(&reg_addr_buf[12], 0x00000000);
+      REG_WRITE(&reg_addr_buf[13], 0x00000000);
+      REG_WRITE(&reg_addr_buf[14], 0x00000000);
+    }
     REG_WRITE(&reg_addr_buf[15], 0x80020000);
 #endif
 }
 
+template <bool SKIP_ZEROS>
 static inline void nerd_sha_ll_fill_text_block_sha256_inter()
 {
   uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
@@ -709,12 +783,15 @@ static inline void nerd_sha_ll_fill_text_block_sha256_inter()
   DPORT_INTERRUPT_RESTORE();
 
   REG_WRITE(&reg_addr_buf[8], 0x00000080);
-  REG_WRITE(&reg_addr_buf[9], 0x00000000);
-  REG_WRITE(&reg_addr_buf[10], 0x00000000);
-  REG_WRITE(&reg_addr_buf[11], 0x00000000);
-  REG_WRITE(&reg_addr_buf[12], 0x00000000);
-  REG_WRITE(&reg_addr_buf[13], 0x00000000);
-  REG_WRITE(&reg_addr_buf[14], 0x00000000);
+  if (!SKIP_ZEROS)
+  {
+    REG_WRITE(&reg_addr_buf[9], 0x00000000);
+    REG_WRITE(&reg_addr_buf[10], 0x00000000);
+    REG_WRITE(&reg_addr_buf[11], 0x00000000);
+    REG_WRITE(&reg_addr_buf[12], 0x00000000);
+    REG_WRITE(&reg_addr_buf[13], 0x00000000);
+    REG_WRITE(&reg_addr_buf[14], 0x00000000);
+  }
   REG_WRITE(&reg_addr_buf[15], 0x00010000);
 }
 
@@ -779,24 +856,178 @@ static inline void nerd_sha_hal_wait_idle()
 }
 
 //#define VALIDATION
+static inline void nerd_sha_ll_zero_text_9_14()
+{
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+  for (int i = 9; i <= 14; ++i)
+    REG_WRITE(&reg_addr_buf[i], 0x00000000);
+}
+
+// Nosso firmware: hash duplo de um nonce no periferico SHA.
+// O resultado fica nos registradores H; quem chama le com nerd_sha_ll_read_digest(_if).
+template <bool SKIP_ZEROS>
+static inline void nerd_sha_hw_double(const void *digest_mid, const void *sha_buffer, uint32_t n)
+{
+  nerd_sha_ll_write_digest((void*)digest_mid);
+  nerd_sha_ll_fill_text_block_sha256<SKIP_ZEROS>(sha_buffer, n);
+  REG_WRITE(SHA_CONTINUE_REG, 1);
+  sha_ll_load(SHA2_256);
+  nerd_sha_hal_wait_idle();
+  nerd_sha_ll_fill_text_block_sha256_inter<SKIP_ZEROS>();
+  REG_WRITE(SHA_START_REG, 1);
+  sha_ll_load(SHA2_256);
+  nerd_sha_hal_wait_idle();
+}
+
+#define SELFTEST_NONCES       32
+#define SELFTEST_BENCH_NONCES 32768
+
+// Nosso firmware: autoteste do SHA em hardware na partida.
+// 1) monta um cabecalho de teste do mesmo jeito que o runStratumWorker monta o de verdade;
+// 2) calcula a resposta certa com o mbedtls ANTES de pegar o periferico (o mbedtls tambem o usa);
+// 3) confere o caminho original e o rapido, nonce a nonce, contra o mbedtls;
+// 4) mede os dois e so liga o rapido se ele estiver certo E for mais veloz.
+// Se o caminho original ja divergir, a conferencia nao vale e nada muda.
+static void hwShaSelfTest()
+{
+  uint8_t header[128];
+  for (int i = 0; i < 80; ++i)
+    header[i] = (uint8_t)(i * 37 + 11);
+  memset(header + 80, 0, 128 - 80);
+  header[80] = 0x80;
+  header[126] = 0x02;
+  header[127] = 0x80;
+
+  const uint32_t nonce_start = 0x1234ABCD;
+  static uint8_t expected[SELFTEST_NONCES][32];  // static: fora da pilha curta da tarefa
+  uint8_t inter[32];
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  for (uint32_t i = 0; i < SELFTEST_NONCES; ++i)
+  {
+    ((uint32_t*)(header + 76))[0] = nonce_start + i;
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, header, 80);
+    mbedtls_sha256_finish_ret(&ctx, inter);
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, inter, 32);
+    mbedtls_sha256_finish_ret(&ctx, expected[i]);
+  }
+  mbedtls_sha256_free(&ctx);
+
+  uint32_t midstate[8];
+  uint8_t hash[32];
+  bool ok_original = true;
+  bool ok_fast = true;
+
+  esp_sha_acquire_hardware();
+  sha_hal_hash_block(SHA2_256, header, 64/4, true);
+  sha_hal_read_digest(SHA2_256, midstate);
+  REG_WRITE(SHA_MODE_REG, SHA2_256);
+
+  for (uint32_t i = 0; i < SELFTEST_NONCES; ++i)
+  {
+    nerd_sha_hw_double<false>(midstate, header + 64, nonce_start + i);
+    nerd_sha_ll_read_digest(hash);
+    if (memcmp(hash, expected[i], 32) != 0)
+      ok_original = false;
+  }
+
+  nerd_sha_ll_zero_text_9_14();
+  for (uint32_t i = 0; i < SELFTEST_NONCES; ++i)
+  {
+    nerd_sha_hw_double<true>(midstate, header + 64, nonce_start + i);
+    nerd_sha_ll_read_digest(hash);
+    if (memcmp(hash, expected[i], 32) != 0)
+      ok_fast = false;
+  }
+
+  int64_t t0 = esp_timer_get_time();
+  for (uint32_t n = 0; n < SELFTEST_BENCH_NONCES; ++n)
+  {
+    nerd_sha_hw_double<false>(midstate, header + 64, n);
+    nerd_sha_ll_read_digest_if(hash);
+  }
+  int64_t t_original = esp_timer_get_time() - t0;
+
+  nerd_sha_ll_zero_text_9_14();
+  t0 = esp_timer_get_time();
+  for (uint32_t n = 0; n < SELFTEST_BENCH_NONCES; ++n)
+  {
+    nerd_sha_hw_double<true>(midstate, header + 64, n);
+    nerd_sha_ll_read_digest_if(hash);
+  }
+  int64_t t_fast = esp_timer_get_time() - t0;
+  esp_sha_release_hardware();
+
+  uint32_t khs_original = t_original > 0 ? (uint32_t)(SELFTEST_BENCH_NONCES * 1000LL / t_original) : 0;
+  uint32_t khs_fast = t_fast > 0 ? (uint32_t)(SELFTEST_BENCH_NONCES * 1000LL / t_fast) : 0;
+
+  s_hw_skip_zeros = ok_original && ok_fast && t_fast < t_original;
+  s_selftest_khs_original = khs_original;
+  s_selftest_khs_fast = ok_fast ? khs_fast : 0;
+
+  Serial.printf("[AUTOTESTE] SHA hw original: %s, %u kH/s\n", ok_original ? "certo" : "DIVERGE", khs_original);
+  Serial.printf("[AUTOTESTE] SHA hw rapido:   %s, %u kH/s\n", ok_fast ? "certo" : "DIVERGE", khs_fast);
+  Serial.printf("[AUTOTESTE] Caminho escolhido: %s\n", s_hw_skip_zeros ? "rapido" : "original");
+}
+
+// Um trabalho inteiro no periferico, com o caminho escolhido em tempo de compilacao.
+template <bool SKIP_ZEROS>
+static void minerHwRunJob(const std::shared_ptr<JobRequest> &job, std::shared_ptr<JobResult> &result)
+{
+  uint8_t hash[32];
+  uint8_t digest_mid[32];
+  uint8_t sha_buffer[64];
+  uint8_t job_in_work = job->id & 0xFF;
+  memcpy(digest_mid, job->midstate, sizeof(digest_mid));
+  memcpy(sha_buffer, job->sha_buffer+64, sizeof(sha_buffer));
+
+  esp_sha_acquire_hardware();
+  REG_WRITE(SHA_MODE_REG, SHA2_256);
+  // Entre um trabalho e outro o periferico pode ter sido usado (midstate, mbedtls do HTTPS)
+  if (SKIP_ZEROS)
+    nerd_sha_ll_zero_text_9_14();
+  uint32_t nend = job->nonce_start + job->nonce_count;
+  for (uint32_t n = job->nonce_start; n < nend; ++n)
+  {
+    nerd_sha_hw_double<SKIP_ZEROS>(digest_mid, sha_buffer, n);
+    if (nerd_sha_ll_read_digest_if(hash))
+    {
+      //~5 per second
+      double diff_hash = diff_from_target(hash);
+      if (diff_hash > result->difficulty)
+      {
+        if (isSha256Valid(hash))
+        {
+          result->difficulty = diff_hash;
+          result->nonce = n;
+          memcpy(result->hash, hash, sizeof(hash));
+        }
+      }
+    }
+    if (
+         (uint8_t)(n & 0xFF) == 0 &&
+         s_working_current_job_id != job_in_work)
+    {
+      result->nonce_count = n-job->nonce_start+1;
+      break;
+    }
+  }
+  esp_sha_release_hardware();
+}
+
 void minerWorkerHw(void * task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
   Serial.printf("[MINER] %d Started minerWorkerHw Task!\n", miner_id);
 
+  // A conferencia que antes era o #define VALIDATION agora roda em toda partida
+  hwShaSelfTest();
+
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
-  uint8_t interResult[64];
-  uint8_t hash[32];
-  uint8_t digest_mid[32];
-  uint8_t sha_buffer[64];
   uint32_t wdt_counter = 0;
-
-#ifdef VALIDATION
-  uint8_t doubleHash[32];
-  uint32_t diget_mid[8];
-  uint32_t bake[16];
-#endif
 
   while (1)
   {
@@ -822,70 +1053,10 @@ void minerWorkerHw(void * task_id)
       result->nonce = 0xFFFFFFFF;
       result->nonce_count = job->nonce_count;
       result->difficulty = job->difficulty;
-      uint8_t job_in_work = job->id & 0xFF;
-      memcpy(digest_mid, job->midstate, sizeof(digest_mid));
-      memcpy(sha_buffer, job->sha_buffer+64, sizeof(sha_buffer));
-#ifdef VALIDATION
-      nerd_mids(diget_mid, job->sha_buffer);
-      nerd_sha256_bake(diget_mid, job->sha_buffer+64, bake);
-#endif
-
-      esp_sha_acquire_hardware();
-      REG_WRITE(SHA_MODE_REG, SHA2_256);
-      uint32_t nend = job->nonce_start + job->nonce_count;
-      for (uint32_t n = job->nonce_start; n < nend; ++n)
-      {
-        //nerd_sha_hal_wait_idle();
-        nerd_sha_ll_write_digest(digest_mid);
-        //nerd_sha_hal_wait_idle();
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer, n);
-        //sha_ll_continue_block(SHA2_256);
-        REG_WRITE(SHA_CONTINUE_REG, 1);
-        
-        sha_ll_load(SHA2_256);
-        nerd_sha_hal_wait_idle();
-        nerd_sha_ll_fill_text_block_sha256_inter();
-        //sha_ll_start_block(SHA2_256);
-        REG_WRITE(SHA_START_REG, 1);
-        sha_ll_load(SHA2_256);
-        nerd_sha_hal_wait_idle();
-        if (nerd_sha_ll_read_digest_if(hash))
-        {
-          //Serial.printf("Hw 16bit Share, nonce=0x%X\n", n);
-#ifdef VALIDATION
-          //Validation
-          ((uint32_t*)(job->sha_buffer+64+12))[0] = n;
-          nerd_sha256d_baked(diget_mid, job->sha_buffer+64, bake, doubleHash);
-          for (int i = 0; i < 32; ++i)
-          {
-            if (hash[i] != doubleHash[i])
-            {
-              Serial.println("***HW sha256 esp32s3 bug detected***");
-              break;
-            }
-          }
-#endif
-          //~5 per second
-          double diff_hash = diff_from_target(hash);
-          if (diff_hash > result->difficulty)
-          {
-            if (isSha256Valid(hash))
-            {
-              result->difficulty = diff_hash;
-              result->nonce = n;
-              memcpy(result->hash, hash, sizeof(hash));
-            }
-          }
-        }
-        if (
-             (uint8_t)(n & 0xFF) == 0 &&
-             s_working_current_job_id != job_in_work)
-        {
-          result->nonce_count = n-job->nonce_start+1;
-          break;
-        }
-      }
-      esp_sha_release_hardware();
+      if (s_hw_skip_zeros)
+        minerHwRunJob<true>(job, result);
+      else
+        minerHwRunJob<false>(job, result);
     } else
       vTaskDelay(2 / portTICK_PERIOD_MS);
 

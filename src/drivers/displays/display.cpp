@@ -20,7 +20,9 @@ DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 DisplayDriver *currentDisplayDriver = &oled042DisplayDriver;
 #endif
 
-#ifdef T_DISPLAY
+#if defined(T_DISPLAY) && defined(NOSSA_TELA)
+DisplayDriver *currentDisplayDriver = &nossaTelaDriver;
+#elif defined(T_DISPLAY)
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif
 

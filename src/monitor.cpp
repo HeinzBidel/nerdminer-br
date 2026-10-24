@@ -78,6 +78,7 @@ void updateGlobalData(void){
             if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
             if(temp.length()>18 + 3) //Exahashes more than 18 digits + 3 digits decimals
               gData.globalHash = temp.substring(0,temp.length()-18 - 3);
+            if (doc.containsKey("currentDifficulty")) gData.netDifficulty = doc["currentDifficulty"].as<double>();
             if (doc.containsKey("currentDifficulty")) temp = String(doc["currentDifficulty"].as<float>());
             if(temp.length()>10 + 3){ //Terahash more than 10 digits + 3 digit decimals
               temp = temp.substring(0,temp.length()-10 - 3);
@@ -160,7 +161,7 @@ String getBTCprice(void){
     
         if (WiFi.status() != WL_CONNECTED) {
             static char price_buffer[16];
-            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+            snprintf(price_buffer, sizeof(price_buffer), PRICE_FORMAT, bitcoin_price);
             return String(price_buffer);
         }
         
@@ -178,8 +179,8 @@ String getBTCprice(void){
             StaticJsonDocument<1024> doc;
             deserializeJson(doc, payload);
           
-            if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
-                bitcoin_price = doc["bitcoin"]["usd"];
+            if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey(PRICE_KEY)) {
+                bitcoin_price = doc["bitcoin"][PRICE_KEY];
             }
 
             doc.clear();
@@ -195,7 +196,7 @@ String getBTCprice(void){
     }  
   
   static char price_buffer[16];
-  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+  snprintf(price_buffer, sizeof(price_buffer), PRICE_FORMAT, bitcoin_price);
   return String(price_buffer);
 }
 
@@ -265,6 +266,46 @@ static uint32_t s_skip_first = 3;
 static double s_top_hashrate = 0.0;
 
 static std::list<double> s_hashrate_avg_list;
+
+// Nosso firmware: ultima media e historico para o grafico da interface
+static double s_last_hashrate = 0.0;
+static float s_hist[HASHRATE_HISTORY];
+static uint8_t s_hist_count = 0;
+static uint8_t s_hist_head = 0;
+static uint32_t s_hist_last_ms = 0;
+
+double lastHashRateKHs(void)
+{
+  return s_last_hashrate;
+}
+
+// Copia o historico do mais antigo para o mais novo; devolve quantas amostras
+uint8_t hashRateHistory(float *out, uint8_t max)
+{
+  uint8_t n = s_hist_count < max ? s_hist_count : max;
+  uint8_t first = (s_hist_head + HASHRATE_HISTORY - n) % HASHRATE_HISTORY;
+  for (uint8_t i = 0; i < n; ++i)
+    out[i] = s_hist[(first + i) % HASHRATE_HISTORY];
+  return n;
+}
+
+double networkDifficulty(void)
+{
+  updateGlobalData();
+  return gData.netDifficulty;
+}
+
+static void pushHashRateHistory(double khs)
+{
+  uint32_t now = millis();
+  if (s_hist_count > 0 && now - s_hist_last_ms < HASHRATE_HISTORY_MS)
+    return;
+  s_hist_last_ms = now;
+  s_hist[s_hist_head] = (float)khs;
+  s_hist_head = (s_hist_head + 1) % HASHRATE_HISTORY;
+  if (s_hist_count < HASHRATE_HISTORY)
+    s_hist_count++;
+}
 static double s_hashrate_summ = 0.0;
 static uint8_t s_hashrate_recalc = 0;
 
@@ -297,6 +338,8 @@ String getCurrentHashRate(unsigned long mElapsed)
     s_skip_first--;
   } else
   {
+    s_last_hashrate = avg_hashrate;
+    pushHashRateHistory(avg_hashrate);
     if (avg_hashrate > s_top_hashrate)
     {
       s_top_hashrate = avg_hashrate;
@@ -407,25 +450,25 @@ coin_data getCoinData(unsigned long mElapsed)
 
 String getPoolAPIUrl(void) {
     poolAPIUrl = String(getPublicPool);
-    if (Settings.PoolAddress == "public-pool.io") {
+    if (activePoolAddress() == "public-pool.io") {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "pool.nerdminers.org") {
+        if (activePoolAddress() == "pool.nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
-            switch (Settings.PoolPort) {
+            switch (activePoolPort()) {
                 case 3333:
-                    if (Settings.PoolAddress == "pool.sethforprivacy.com")
+                    if (activePoolAddress() == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
-                    if (Settings.PoolAddress == "pool.solomining.de")
+                    if (activePoolAddress() == "pool.solomining.de")
                         poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
                     // Local instance of public-pool.io on Umbrel or Start9
-                    poolAPIUrl = "http://" + Settings.PoolAddress + ":2019/api/client/";
+                    poolAPIUrl = "http://" + activePoolAddress() + ":2019/api/client/";
                     break;
                 default:
                     poolAPIUrl = String(getPublicPool);
@@ -448,6 +491,7 @@ pool_data getPoolData(void){
           // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
 #ifdef SCREEN_WORKERS_ENABLE
+          poolAPIUrl = getPoolAPIUrl(); //Nosso firmware: segue a pool em uso (principal ou reserva)
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
           http.begin(poolAPIUrl+btcWallet);
 #else

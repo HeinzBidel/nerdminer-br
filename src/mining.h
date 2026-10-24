@@ -26,6 +26,13 @@ void minerWorkerHw(void * task_id);
 
 String printLocalTime(void);
 
+// Nosso firmware: pool em uso (principal ou reserva)
+const String &activePoolAddress(void);
+int activePoolPort(void);
+uint8_t activePoolIndex(void);  // 0 = principal, 1 = reserva
+bool hwShaFastPath(void);        // true = autoteste ligou o caminho rapido do SHA
+void hwShaSelfTestKHs(uint32_t &original, uint32_t &fast); // kH/s medidos no autoteste (0 = nao medido)
+
 void resetStat();
 
 typedef struct{

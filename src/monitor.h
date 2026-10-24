@@ -16,7 +16,16 @@
 
 //#define getBTCAPI "https://api.coindesk.com/v1/bpi/currentprice.json" -- doesn't work anymore
 //#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT" -- updates infrequently
+#ifdef BRASIL
+// Nosso firmware: preco em reais
+#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl"
+#define PRICE_KEY "brl"
+#define PRICE_FORMAT "R$%u"
+#else
 #define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+#define PRICE_KEY "usd"
+#define PRICE_FORMAT "$%u"
+#endif
 
 #define UPDATE_BTC_min   1
 
@@ -51,6 +60,7 @@ typedef struct{
 }monitor_data;
 
 typedef struct{
+  double netDifficulty;  // Nosso firmware: dificuldade da rede em numero (0 = ainda sem dado)
   String globalHash; //hexahashes
   String currentBlock;
   String difficulty;
@@ -58,7 +68,7 @@ typedef struct{
   float progressPercent;
   int remainingBlocks;
   int halfHourFee;
-#ifdef NERDMINER_T_HMI
+#if defined(NERDMINER_T_HMI) || defined(SCREEN_FEES_ENABLE)
   int fastestFee;
   int hourFee;
   int economyFee;
@@ -104,7 +114,7 @@ typedef struct {
   String btcPrice;
   String currentTime;
   String halfHourFee;
-#ifdef NERDMINER_T_HMI
+#if defined(NERDMINER_T_HMI) || defined(SCREEN_FEES_ENABLE)
   String hourFee;
   String fastestFee;
   String economyFee;
@@ -129,6 +139,13 @@ mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
 pool_data getPoolData(void);
+
+// Nosso firmware: numeros para a interface propria
+#define HASHRATE_HISTORY 60          // amostras guardadas para o grafico
+#define HASHRATE_HISTORY_MS 10000   // uma amostra a cada 10 s (10 min no grafico)
+double lastHashRateKHs(void);
+uint8_t hashRateHistory(float *out, uint8_t max);
+double networkDifficulty(void);
 
 clock_data_t getClockData_t(unsigned long mElapsed);
 String getPoolAPIUrl(void);
