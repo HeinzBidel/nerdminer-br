@@ -108,6 +108,22 @@ uint8_t activePoolIndex(void) {
 
 // Caminho do SHA em hardware escolhido pelo autoteste da partida (false = caminho original)
 static bool s_hw_skip_zeros = false;
+
+// Velocidade por motor (hardware x software) e dificuldade pedida pela pool
+static uint64_t s_hashes_hw = 0;
+static uint64_t s_hashes_sw = 0;
+static double s_khs_hw = 0.0;
+static double s_khs_sw = 0.0;
+static double s_dif_pool = 0.0;
+
+void velocidadePorMotor(double &khsHw, double &khsSw) {
+  khsHw = s_khs_hw;
+  khsSw = s_khs_sw;
+}
+
+double poolDifficultyAtual(void) {
+  return s_dif_pool;
+}
 static uint32_t s_selftest_khs_original = 0;
 static uint32_t s_selftest_khs_fast = 0;
 
@@ -242,6 +258,8 @@ struct JobResult
   uint32_t nonce_count;
   double difficulty;
   uint8_t hash[32];
+  bool hw = false;            // Nosso firmware: veio do SHA em hardware
+  double melhorLocal = 0.0;   // Nosso firmware: melhor hash do lote, mesmo abaixo da dificuldade da pool
 };
 
 static std::mutex s_job_mutex;
@@ -433,6 +451,7 @@ void runStratumWorker(void *name) {
                                           }
                                           //Increse templates readed
                                           templates++;
+                                          mMonitor.NerdStatus = NM_hashing; //Nosso firmware: o original nunca ligava este estado
                                           job_pool++;
                                           s_working_current_job_id = job_pool & 0xFF; //Terminate current job in thread
 
@@ -520,6 +539,7 @@ void runStratumWorker(void *name) {
                                       }
                                       break;
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
+                                      s_dif_pool = currentPoolDifficulty;
                                       break;
           case STRATUM_SUCCESS:       {
                                         unsigned long id = parse_extract_id(line);
@@ -637,6 +657,12 @@ void runStratumWorker(void *name) {
       job_result_list.pop_front();
 
       hashes += res->nonce_count;
+      if (res->hw)
+        s_hashes_hw += res->nonce_count;
+      else
+        s_hashes_sw += res->nonce_count;
+      if (res->melhorLocal > best_diff)
+        best_diff = res->melhorLocal; //Nosso firmware: melhor hash achado, nao so o aceito pela pool
       if (res->difficulty > currentPoolDifficulty && job_pool == res->id && res->nonce != 0xFFFFFFFF)
       {
         if (!client.connected())
@@ -710,6 +736,8 @@ void minerWorkerSw(void * task_id)
         if (nerd_sha256d_baked(job->midstate, job->sha_buffer+64, job->bake, hash))
         {
           double diff_hash = diff_from_target(hash);
+          if (diff_hash > result->melhorLocal)
+            result->melhorLocal = diff_hash;
           if (diff_hash > result->difficulty)
           {
             result->difficulty = diff_hash;
@@ -1013,18 +1041,17 @@ static void minerHwRunJob(const std::shared_ptr<JobRequest> &job, std::shared_pt
   for (uint32_t n = job->nonce_start; n < nend; ++n)
   {
     nerd_sha_hw_double<SKIP_ZEROS>(digest_mid, sha_buffer, n);
-    if (nerd_sha_ll_read_digest_if(hash))
+    if (nerd_sha_ll_read_digest_if(hash) && isSha256Valid(hash))
     {
       //~5 per second
       double diff_hash = diff_from_target(hash);
+      if (diff_hash > result->melhorLocal)
+        result->melhorLocal = diff_hash;
       if (diff_hash > result->difficulty)
       {
-        if (isSha256Valid(hash))
-        {
-          result->difficulty = diff_hash;
-          result->nonce = n;
-          memcpy(result->hash, hash, sizeof(hash));
-        }
+        result->difficulty = diff_hash;
+        result->nonce = n;
+        memcpy(result->hash, hash, sizeof(hash));
       }
     }
     if (
@@ -1074,6 +1101,7 @@ void minerWorkerHw(void * task_id)
       result->nonce = 0xFFFFFFFF;
       result->nonce_count = job->nonce_count;
       result->difficulty = job->difficulty;
+      result->hw = true;
       if (s_hw_skip_zeros)
         minerHwRunJob<true>(job, result);
       else
@@ -1434,6 +1462,15 @@ void runMonitor(void *name)
         upTime ++;
       }
 
+      {
+        // Nosso firmware: kH/s de cada motor, media movel (hashes por ms = kH/s)
+        static uint64_t ultHw = 0, ultSw = 0;
+        uint64_t hw = s_hashes_hw, sw = s_hashes_sw;
+        s_khs_hw = s_khs_hw * 0.8 + 0.2 * (double)(hw - ultHw) / (double)mElapsed;
+        s_khs_sw = s_khs_sw * 0.8 + 0.2 * (double)(sw - ultSw) / (double)mElapsed;
+        ultHw = hw;
+        ultSw = sw;
+      }
       drawCurrentScreen(mElapsed);
       painelAtualiza(); //Nosso firmware: JSON do painel web
 

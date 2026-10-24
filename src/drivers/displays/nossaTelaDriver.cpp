@@ -1,7 +1,8 @@
 // Nosso firmware: interface propria para a LilyGO T-Display S3 (320 x 170 visiveis).
 // Visual de cartoes (mockup do Heinz de 24/10/2026), desenhado por codigo, sem imagens prontas.
 // Telas: Minerando, Sorte, Pool, Rede, Taxas, Relogio, Aparelho e Ajustes (QR do painel web).
-// A fonte NotoSans_Bold embutida so tem ASCII + á í ó ú minusculos: rotulos em maiusculas sem acento.
+// Visual pixelado de videogame antigo (pedido do Heinz, 24/10): fonte de 8 bits do TFT_eSPI (GLCD) ampliada em
+// blocos, sem FreeType, para gastar menos processador. A fonte so tem ASCII: textos sem acento.
 
 #include "displayDriver.h"
 
@@ -10,7 +11,6 @@
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <math.h>
-#include "media/myFonts.h"
 #include "version.h"
 #include "monitor.h"
 #include "mining.h"
@@ -18,7 +18,6 @@
 #include "wManager.h"
 #include "qrMini.h"
 #include "drivers/storage/storage.h"
-#include "OpenFontRender.h"
 #include "rotation.h"
 
 #define WIDTH 320
@@ -46,34 +45,50 @@ extern double best_diff;
 extern uint64_t upTime;
 extern TSettings Settings;
 
-OpenFontRender texto;   // NotoSans_Bold: rotulos e valores
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite background = TFT_eSprite(&tft);
 
 /********************* AJUDANTES *********************/
 
+// `tam` e a altura pedida em pixels; vira a escala inteira da fonte de 8 pixels (1x a 6x)
+static uint8_t escala(int tam)
+{
+  if (tam <= 11) return 1;
+  if (tam <= 19) return 2;
+  if (tam <= 31) return 3;
+  if (tam <= 47) return 4;
+  return 6;
+}
+
+static void escreveComo(const String &s, int x, int y, int tam, uint16_t cor, uint16_t fundo, uint8_t alinha)
+{
+  background.setTextFont(1);
+  background.setTextSize(escala(tam));
+  background.setTextColor(cor, fundo);
+  background.setTextDatum(alinha);
+  background.drawString(s, x, y);
+}
+
 static void escreve(const String &s, int x, int y, int tam, uint16_t cor, uint16_t fundo = COR_CARTAO)
 {
-  texto.setFontSize(tam);
-  texto.drawString(s.c_str(), x, y, cor, fundo);
+  escreveComo(s, x, y, tam, cor, fundo, TL_DATUM);
 }
 
 static void escreveDir(const String &s, int x, int y, int tam, uint16_t cor, uint16_t fundo = COR_CARTAO)
 {
-  texto.setFontSize(tam);
-  texto.rdrawString(s.c_str(), x, y, cor, fundo);
+  escreveComo(s, x, y, tam, cor, fundo, TR_DATUM);
 }
 
 static void escreveCentro(const String &s, int x, int y, int tam, uint16_t cor, uint16_t fundo = COR_CARTAO)
 {
-  texto.setFontSize(tam);
-  texto.cdrawString(s.c_str(), x, y, cor, fundo);
+  escreveComo(s, x, y, tam, cor, fundo, TC_DATUM);
 }
 
 static int largura(const String &s, int tam)
 {
-  texto.setFontSize(tam);
-  return (int)texto.getTextWidth("%s", s.c_str());
+  background.setTextFont(1);
+  background.setTextSize(escala(tam));
+  return background.textWidth(s);
 }
 
 static uint16_t mistura(uint16_t a, uint16_t b, int t, int max)
@@ -84,31 +99,19 @@ static uint16_t mistura(uint16_t a, uint16_t b, int t, int max)
   return (uint16_t)((r << 11) | (g << 5) | bl);
 }
 
-// Barra com trilho e preenchimento em degrade (o numero vai sempre ao lado: a cor nunca e o unico sinal)
+// Barra de blocos, estilo videogame: trilho e blocos de 4 px, cor passando de c1 para c2
 static void barra(int x, int y, int w, int h, float frac, uint16_t c1, uint16_t c2)
 {
-  int r = h / 2;
-  background.fillRoundRect(x, y, w, h, r, COR_BORDA);
+  background.fillRect(x, y, w, h, COR_BORDA);
   if (frac <= 0.0f)
     return;
   if (frac > 1.0f)
     frac = 1.0f;
   int fw = (int)(w * frac);
-  if (fw < h)
-    fw = h;
-  for (int i = 0; i < fw; ++i)
-  {
-    int borda = i < r ? r - i : (i >= fw - r ? i - (fw - r) + 1 : 0);
-    int topo = y, alt = h;
-    if (borda > 0)
-    {
-      int corte = r - (int)sqrtf((float)(r * r - (r - borda) * (r - borda)));
-      topo += corte;
-      alt -= 2 * corte;
-    }
-    if (alt > 0)
-      background.drawFastVLine(x + i, topo, alt, mistura(c1, c2, i, fw));
-  }
+  if (fw < 4)
+    fw = 4;
+  for (int i = 0; i < fw; i += 5)
+    background.fillRect(x + i, y, (fw - i) < 4 ? fw - i : 4, h, mistura(c1, c2, i, fw));
 }
 
 // Ponto decimal vira virgula
@@ -276,8 +279,8 @@ static void moldura(Icone ic, int numero, const char *titulo, const String &hora
   const char *est;
   uint16_t corEst;
   estadoAtual(&est, &corEst);
-  selo(262, est, corEst);
-  escreveDir(hora, 312, 6, 12, COR_TEXTO);
+  selo(276, est, corEst);
+  escreveDir(hora, 312, 9, 10, COR_TEXTO);
   background.drawFastHLine(1, 26, WIDTH - 2, COR_LARANJA);
 }
 
@@ -320,8 +323,8 @@ static void faixaRecorde(int y, bool sempre)
   if (!novo)
     background.drawRoundRect(10, y, 300, 16, 5, COR_BORDA);
   trofeu(16, y + 2, novo ? COR_FUNDO : COR_OURO, fundo);
-  escreve((novo ? "NOVO RECORDE: " : "RECORDE: ") + melhorDif(), 34, y + 3, 11, novo ? COR_FUNDO : COR_TEXTO, fundo);
-  escreveDir(">", 302, y + 2, 12, novo ? COR_FUNDO : COR_SUAVE, fundo);
+  escreve((novo ? "NOVO RECORDE: " : "MELHOR HASH: ") + melhorDif(), 34, y + 4, 10, novo ? COR_FUNDO : COR_TEXTO, fundo);
+  escreveDir(">", 302, y + 4, 10, novo ? COR_FUNDO : COR_SUAVE, fundo);
 }
 
 static void finalizaTela(int pagina)
@@ -338,6 +341,8 @@ static void cartao(int x, int y, int w, int h, const char *rotulo, const String 
   background.fillRoundRect(x, y, w, h, 5, COR_FUNDO);
   background.drawRoundRect(x, y, w, h, 5, COR_BORDA);
   escreve(rotulo, x + 7, y + 5, 9, COR_SUAVE, COR_FUNDO);
+  if (largura(valor, tamValor) > w - 12)
+    tamValor = 10; // nao cabe: escala 1
   escreve(valor, x + 7, y + 19, tamValor, COR_TEXTO, COR_FUNDO);
 }
 
@@ -376,9 +381,7 @@ void nossaTela_Init(void)
   background.createSprite(WIDTH, HEIGHT);
   background.setSwapBytes(true);
 
-  texto.setDrawer(background);
-  if (texto.loadFont(NotoSans_Bold, sizeof(NotoSans_Bold)))
-    Serial.println("Erro ao carregar a fonte NotoSans_Bold");
+  background.setTextWrap(false, false);
 }
 
 void nossaTela_AlternateScreenState(void)
@@ -400,7 +403,7 @@ void nossaTela_LoadingScreen(void)
   escreve("NERDMINER", 122, 44, 28, COR_TEXTO);
   escreve("v2 BR", 122, 78, 18, COR_VERDE);
   escreve(CURRENT_VERSION, 186, 82, 12, COR_SUAVE);
-  escreve("conectando ao Wi-Fi...", 122, 114, 13, COR_SUAVE);
+  escreve("conectando ao Wi-Fi...", 122, 116, 10, COR_SUAVE);
   background.pushSprite(0, 0);
 }
 
@@ -417,14 +420,14 @@ void nossaTela_SetupScreen(void)
   escreve("1. ENTRE NA REDE WI-FI", 12, 34, 10, COR_SUAVE);
   escreve(rede, 12, 48, 15, COR_LARANJA);
 #ifdef AJUSTE_SEM_SENHA
-  escreve("rede aberta, sem senha", 12, 68, 12, COR_TEXTO);
+  escreve("rede aberta, sem senha", 12, 70, 10, COR_TEXTO);
 #else
   escreve(String("senha ") + DEFAULT_WIFIPW, 12, 68, 12, COR_TEXTO);
 #endif
   escreve("2. A pagina de ajuste abre", 12, 90, 11, COR_SUAVE);
   escreve("sozinha; se nao abrir, va em", 12, 104, 11, COR_SUAVE);
   escreve("192.168.4.1", 12, 120, 15, COR_TEXTO);
-  escreve("3. Informe Wi-Fi, carteira e pool", 12, 144, 11, COR_SUAVE);
+  escreve("3. Wi-Fi, carteira e pool", 12, 144, 11, COR_SUAVE);
 
 #ifdef AJUSTE_SEM_SENHA
   desenhaQR(String("WIFI:T:nopass;S:") + rede + ";;", 196, 32, 118);
@@ -445,13 +448,13 @@ void nossaTela_Minerando(unsigned long mElapsed)
 
   escreve("VELOCIDADE", 12, 34, 10, COR_SUAVE);
   escreve(data.currentHashRate, 12, 48, 36, COR_TEXTO);
-  escreve("kH/s", 16 + largura(data.currentHashRate, 36), 66, 14, COR_VERDE);
+  escreve("kH/s", 16 + largura(data.currentHashRate, 36), 72, 10, COR_VERDE);
 
   // Grafico dos ultimos 10 minutos
   const int gx = 172, gy = 32, gw = 140, gh = 62;
   background.fillRoundRect(gx, gy, gw, gh, 5, COR_FUNDO);
   background.drawRoundRect(gx, gy, gw, gh, 5, COR_BORDA);
-  escreve("últimos 10 min", gx + 6, gy + 4, 9, COR_SUAVE, COR_FUNDO);
+  escreve("ULTIMOS 10 MIN", gx + 6, gy + 4, 9, COR_SUAVE, COR_FUNDO);
   float hist[HASHRATE_HISTORY];
   uint8_t n = hashRateHistory(hist, HASHRATE_HISTORY);
   if (n >= 2)
@@ -515,7 +518,7 @@ void nossaTela_Sorte(unsigned long mElapsed)
 
   escreve("CHANCE DE ACHAR UM BLOCO POR ANO", 12, 34, 10, COR_SUAVE);
   escreve("1 em " + numeroGrande(anosPorBloco), 12, 48, 30, COR_LARANJA);
-  escreve("1 bloco a cada ~" + numeroGrande(anosPorBloco) + " anos", 12, 84, 12, COR_TEXTO);
+  escreve("1 bloco a cada ~" + numeroGrande(anosPorBloco) + " anos", 12, 84, 10, COR_TEXTO);
 
   char difRede[16] = {0};
   suffix_string(dif, difRede, sizeof(difRede), 0);
@@ -551,6 +554,16 @@ void nossaTela_Pool(unsigned long mElapsed)
   background.fillCircle(16, 142, 3, corCon);
   escreve(quedas == 0 ? String("CONEXAO ESTAVEL") : String("CONEXAO INSTAVEL: ") + quedas + " quedas em 1 h",
           24, 137, 10, COR_TEXTO);
+
+  double dp = poolDifficultyAtual();
+  double khs = lastHashRateKHs();
+  if (dp > 0.0 && khs > 0.0)
+  {
+    double horas = 4294967296.0 * dp / (khs * 1000.0) / 3600.0;
+    char buf[48];
+    snprintf(buf, sizeof(buf), "DIF DA POOL %g   1 PARTE A CADA ~%.1f h", dp, horas);
+    escreve(virgula(buf), 12, 152, 10, COR_SUAVE);
+  }
 
   finalizaTela(2);
 }
@@ -597,7 +610,7 @@ void nossaTela_Taxas(unsigned long mElapsed)
   moldura(IC_MOEDAS, 5, "TAXAS", data.currentTime);
   escreve("SAT/VB PARA ENTRAR NUM BLOCO", 12, 34, 10, COR_SUAVE);
 
-  const char *rotulos[5] = {"Próximo", "30 min", "1 hora", "Barata", "Mínima"};
+  const char *rotulos[5] = {"PROXIMO", "30 MIN", "1 HORA", "BARATA", "MINIMA"};
   int valores[5] = {data.fastestFee.toInt(), data.halfHourFee.toInt(), data.hourFee.toInt(),
                     data.economyFee.toInt(), data.minimumFee.toInt()};
   uint16_t c1[5] = {COR_LARANJA, COR_AZUL, COR_AZUL, COR_AZUL, COR_ROXO};
@@ -608,7 +621,7 @@ void nossaTela_Taxas(unsigned long mElapsed)
   for (int i = 0; i < 5; ++i)
   {
     int y = 48 + i * 18;
-    escreve(rotulos[i], 12, y, 12, COR_TEXTO);
+    escreve(rotulos[i], 12, y + 2, 10, COR_TEXTO);
     barra(84, y + 2, 196, 9, (float)valores[i] / maxv, c1[i], c2[i]);
     escreveDir(String(valores[i]), 308, y - 1, 13, COR_TEXTO);
   }
@@ -658,12 +671,15 @@ void nossaTela_Aparelho(unsigned long mElapsed)
 
   uint32_t khsOriginal = 0, khsRapido = 0;
   hwShaSelfTestKHs(khsOriginal, khsRapido);
-  String sha = hwShaFastPath() ? String("rápido, ") + khsRapido + " kH/s (original " + khsOriginal + ")"
-                               : String("original, ") + khsOriginal + " kH/s";
+  String sha = hwShaFastPath() ? String("RAPIDO, ") + khsRapido + " kH/s (original " + khsOriginal + ")"
+                               : String("ORIGINAL, ") + khsOriginal + " kH/s";
   escreve("SHA EM HARDWARE: " + sha, 12, 86, 10, COR_TEXTO);
   escreve("IP " + WiFi.localIP().toString() + "    Wi-Fi " + WiFi.SSID(), 12, 102, 10, COR_TEXTO);
   escreve(String("VERSAO ") + CURRENT_VERSION, 12, 118, 10, COR_SUAVE);
   escreve("LIGADO " + tempoLigado(), 150, 118, 10, COR_AZUL2);
+  double khsHw = 0.0, khsSw = 0.0;
+  velocidadePorMotor(khsHw, khsSw);
+  escreve("MOTORES  HW " + String(khsHw, 1) + " kH/s   SW " + String(khsSw, 1) + " kH/s", 12, 134, 10, COR_TEXTO);
 
   finalizaTela(6);
 }
@@ -678,15 +694,14 @@ void nossaTela_Ajustes(unsigned long mElapsed)
   String url = "http://" + WiFi.localIP().toString() + "/";
 
   escreve("PAINEL NA REDE DE CASA", 12, 34, 10, COR_SUAVE);
-  escreve(conectado ? url : String("sem Wi-Fi"), 12, 47, 13, COR_LARANJA);
+  escreve(conectado ? url : String("sem Wi-Fi"), 12, 48, 10, COR_LARANJA);
   escreve("Aponte o celular para o QR", 12, 64, 10, COR_SUAVE);
 
   String carteira = String(Settings.BtcWallet);
   if (carteira.length() > 16)
     carteira = carteira.substring(0, 8) + "..." + carteira.substring(carteira.length() - 6);
-  String reserva = Settings.PoolAddress2.length() ? Settings.PoolAddress2 + ":" + String(Settings.PoolPort2) : String("nenhuma");
-  escreve("POOL  " + Settings.PoolAddress + ":" + String(Settings.PoolPort), 12, 84, 10, COR_TEXTO);
-  escreve("RESERVA  " + reserva, 12, 99, 10, COR_TEXTO);
+  escreve("POOL " + Settings.PoolAddress + ":" + String(Settings.PoolPort), 12, 84, 10, COR_TEXTO);
+  escreve("RESERVA " + (Settings.PoolAddress2.length() ? Settings.PoolAddress2 : String("nenhuma")), 12, 99, 10, COR_TEXTO);
   escreve("CARTEIRA  " + carteira, 12, 114, 10, COR_TEXTO);
   escreve("Para mudar: ligue segurando", 12, 132, 10, COR_SUAVE);
   escreve("a tecla de cima", 12, 145, 10, COR_SUAVE);

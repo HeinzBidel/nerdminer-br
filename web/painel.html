@@ -80,7 +80,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
       <div style="flex:1 1 160px"><div class="rot">Últimos 10 min</div><svg id="grafico" viewBox="0 0 200 80" preserveAspectRatio="none" role="img" aria-label="Velocidade nos últimos 10 minutos"></svg></div>
     </div>
     <div class="tres">
-      <div class="mini"><span class="rot">Melhor dif</span><b id="melhor">--</b></div>
+      <div class="mini"><span class="rot">Melhor hash</span><b id="melhor">--</b></div>
       <div class="mini"><span class="rot">Partes 32b</span><b id="partes">--</b></div>
       <div class="mini"><span class="rot">Tempo</span><b id="ligado">--</b></div>
     </div>
@@ -109,6 +109,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
     </div>
     <div id="poolCont">--</div>
     <div id="poolCon" class="info"></div>
+    <div id="poolDif" class="info"></div>
   </section>
 
   <section class="c" id="rede">
@@ -147,6 +148,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
     </div>
     <dl class="kv">
       <dt>SHA em hardware</dt><dd id="sha">--</dd>
+      <dt>Motores</dt><dd id="motores">--</dd>
       <dt>IP / Wi-Fi</dt><dd id="rede2">--</dd>
       <dt>Versão</dt><dd id="versao2">--</dd>
     </dl>
@@ -248,6 +250,8 @@ function aplica(d) {
   $('heap').textContent = fmt(d.heap / 1024) + ' kB'; $('barraHeap').style.width = (d.heap * 100 / d.heapTotal) + '%';
   $('sha').textContent = d.shaRapido ? `rápido, ${d.khsRapido} kH/s (original ${d.khsOriginal})` : `original, ${d.khsOriginal} kH/s`;
   $('rede2').textContent = `${d.ip} · ${d.ssid}`;
+  $('motores').textContent = `hardware ${fmt(d.khsHw, 1)} kH/s · software ${fmt(d.khsSw, 1)} kH/s`;
+  if (d.difPool > 0 && d.khs > 0) $('poolDif').textContent = `Dificuldade da pool ${fmt(d.difPool, d.difPool < 1 ? 5 : 0)} · 1 parte a cada ~${fmt(4294967296 * d.difPool / (d.khs * 1000) / 3600, 1)} h`;
 
   $('cfgPool').textContent = `${d.config.pool}:${d.config.porta}`;
   $('cfgPool2').textContent = d.config.pool2 ? `${d.config.pool2}:${d.config.porta2}` : 'nenhuma';

@@ -33,6 +33,8 @@ uint8_t activePoolIndex(void);  // 0 = principal, 1 = reserva
 bool hwShaFastPath(void);        // true = autoteste ligou o caminho rapido do SHA
 void hwShaSelfTestKHs(uint32_t &original, uint32_t &fast); // kH/s medidos no autoteste (0 = nao medido)
 int poolQuedasUltimaHora(void);  // quedas da conexao com a pool na ultima hora
+void velocidadePorMotor(double &khsHw, double &khsSw); // kH/s do SHA em hardware e do SHA em software
+double poolDifficultyAtual(void);  // dificuldade que a pool mandou (mining.set_difficulty)
 
 void resetStat();
 
