@@ -1,0 +1,281 @@
+// Gerado por web/gerar_header.py a partir de web/painel.html. Nao edite a mao.
+#ifndef PAINEL_HTML_H
+#define PAINEL_HTML_H
+
+static const char PAINEL_HTML[] PROGMEM = R"PAINEL(<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NerdMiner v2 BR</title>
+<style>
+:root{--fundo:#0A1220;--cartao:#0F1B2D;--borda:#22324A;--texto:#F4F7FB;--suave:#9FB0C8;--laranja:#F7931A;--ouro:#FFC14D;--verde:#22C55E;--amarelo:#FACC15;--vermelho:#EF4444;--azul:#3B82F6;--azul2:#60A5FA;--roxo:#8B5CF6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fundo);color:var(--texto);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:inherit;text-decoration:none}
+.topo{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--borda);flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:.5px}
+.marca b{color:var(--verde)}
+.topo .estado{display:flex;align-items:center;gap:8px;font-weight:600}
+.topo .dir{margin-left:auto;display:flex;gap:20px;color:var(--suave)}
+.corpo{display:flex;flex-wrap:wrap}
+nav{flex:0 0 200px;padding:16px 10px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--borda);min-height:calc(100vh - 62px)}
+nav a{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;color:var(--suave);font-weight:600;min-height:44px}
+nav a:hover,nav a.ativo{background:#13233A;color:var(--texto)}
+nav a.ativo svg{stroke:var(--verde)}
+nav .rodape{margin-top:auto;padding:14px;font-size:13px;color:var(--suave)}
+main{flex:999 1 560px;min-width:0;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;align-content:start}
+.c{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px}
+.c h2{margin:0;display:flex;align-items:center;gap:10px;font-size:17px;letter-spacing:.4px;padding-bottom:10px;border-bottom:1px solid var(--laranja)}
+.c h2 svg{stroke:var(--laranja)}
+.selo{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid currentColor;border-radius:99px;padding:3px 10px;color:var(--verde)}
+.selo i,.ponto{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.selo span{color:var(--texto)}
+.hora{font-size:13px;color:var(--suave);font-weight:600}
+.rot{font-size:12px;color:var(--suave);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.grande{font-size:44px;font-weight:800;line-height:1}
+.laranja{color:var(--laranja)}.verde{color:var(--verde)}.vermelho{color:var(--vermelho)}.azul{color:var(--azul2)}
+.linha{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
+.tres{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.mini{min-width:0;background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+.mini .rot{display:block;font-size:11px;line-height:1.25}
+.mini b{display:block;font-size:clamp(13px,3.6vw,18px);margin-top:2px;white-space:nowrap}
+.trilho{height:10px;border-radius:99px;background:var(--borda);overflow:hidden}
+.trilho>div{height:100%;border-radius:99px;width:0;transition:width .3s}
+.g-laranja{background:linear-gradient(90deg,var(--laranja),var(--ouro))}
+.g-azul{background:linear-gradient(90deg,var(--azul),var(--azul2))}
+.g-roxo{background:var(--roxo)}.g-verde{background:var(--verde)}
+.taxa{display:grid;grid-template-columns:76px 1fr 32px;gap:10px;align-items:center}
+.taxa b{text-align:right}
+.faixa{display:flex;align-items:center;gap:10px;border-radius:8px;padding:9px 12px;font-weight:700;border:1px solid var(--borda)}
+.faixa.novo{background:var(--verde);color:#08210F;border-color:var(--verde)}
+.dupla{display:grid;grid-template-columns:1fr 1fr;text-align:center;border-top:1px solid var(--borda);padding-top:12px}
+.dupla>div+div{border-left:1px solid var(--borda)}
+.info{font-size:13px;color:var(--suave)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--suave)}.kv dd{margin:0;overflow-wrap:anywhere}
+svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#grafico{width:100%;height:80px}
+@media (max-width:720px){nav{flex:1 1 100%;flex-direction:row;overflow-x:auto;min-height:0;border-right:0;border-bottom:1px solid var(--borda)}nav .rodape{display:none}nav a{white-space:nowrap}.grande{font-size:36px}}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="marca"><svg class="ic" viewBox="0 0 24 24" style="stroke:var(--verde)"><path d="M14 4l6 6M4 20l9-9M9 4c4 0 8 2 11 5"/></svg>NERDMINER <b>v2 BR</b></div>
+  <div class="estado" id="estadoTopo"><i class="ponto verde"></i><span>...</span></div>
+  <div class="dir"><span id="horaTopo">--:--</span><span id="dataTopo">--/--/----</span></div>
+</header>
+<div class="corpo">
+<nav aria-label="Seções">
+  <a href="#minerando" class="ativo"><svg class="ic" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9H3z"/></svg>Visão geral</a>
+  <a href="#minerando"><svg class="ic" viewBox="0 0 24 24"><path d="M14 4l6 6M4 20l9-9"/></svg>Minerador</a>
+  <a href="#rede"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>Rede</a>
+  <a href="#pool"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M11 7l-5 10M13 7l5 10"/></svg>Pool</a>
+  <a href="#taxas"><svg class="ic" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>Taxas</a>
+  <a href="#relogio"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Relógio</a>
+  <a href="#ajustes"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Ajustes</a>
+  <div class="rodape"><i class="ponto verde"></i> NerdMiner v2 BR<br><span id="versao">--</span></div>
+</nav>
+<main>
+  <section class="c" id="minerando">
+    <h2><svg class="ic" viewBox="0 0 24 24"><path d="M14 4l6 6M4 20l9-9M9 4c4 0 8 2 11 5"/></svg>1. MINERANDO<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="linha" style="align-items:center">
+      <div style="flex:1 1 140px"><div class="rot">Velocidade</div><span class="grande" id="khs">--</span> <b class="verde">kH/s</b></div>
+      <div style="flex:1 1 160px"><div class="rot">Últimos 10 min</div><svg id="grafico" viewBox="0 0 200 80" preserveAspectRatio="none" role="img" aria-label="Velocidade nos últimos 10 minutos"></svg></div>
+    </div>
+    <div class="tres">
+      <div class="mini"><span class="rot">Melhor dif</span><b id="melhor">--</b></div>
+      <div class="mini"><span class="rot">Partes 32b</span><b id="partes">--</b></div>
+      <div class="mini"><span class="rot">Tempo</span><b id="ligado">--</b></div>
+    </div>
+    <div class="faixa" id="faixa"><svg class="ic" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 01-8 0zM6 5H3v2a3 3 0 003 3M18 5h3v2a3 3 0 01-3 3M12 13v4M8 20h8"/></svg><span id="recorde">RECORDE: --</span></div>
+  </section>
+
+  <section class="c" id="sorte">
+    <h2><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01"/></svg>2. SORTE<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="rot">Chance de achar um bloco por ano</div>
+    <div class="grande laranja" id="chance">--</div>
+    <div id="anos">--</div>
+    <div class="rot">Seu melhor × alvo da rede (escala logarítmica)</div>
+    <div class="trilho"><div class="g-laranja" id="barraSorte"></div></div>
+    <div class="linha" style="justify-content:space-between"><b id="sorteMelhor">--</b><b id="sorteAlvo">--</b></div>
+    <p class="info" style="margin:0">É uma loteria: cada hash é um sorteio independente. A conta usa a sua velocidade e a dificuldade atual da rede.</p>
+  </section>
+
+  <section class="c" id="pool">
+    <h2><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M11 7l-5 10M13 7l5 10"/></svg>3. POOL<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="rot" id="poolTipo">Pool</div>
+    <div class="laranja" style="font-size:22px;font-weight:800;overflow-wrap:anywhere" id="poolEnd">--</div>
+    <div class="tres">
+      <div class="mini"><span class="rot">Mineradores</span><b id="poolMin">--</b></div>
+      <div class="mini"><span class="rot">Hash somado</span><b id="poolHash">--</b></div>
+      <div class="mini"><span class="rot">Melhor na pool</span><b id="poolMelhor">--</b></div>
+    </div>
+    <div id="poolCont">--</div>
+    <div id="poolCon" class="info"></div>
+  </section>
+
+  <section class="c" id="rede">
+    <h2><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>4. REDE<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="rot">Valor do BTC</div>
+    <div class="linha" style="align-items:baseline"><span class="grande laranja" id="preco">--</span><span id="var24">--</span></div>
+    <div class="tres">
+      <div class="mini"><span class="rot">Bloco</span><b id="bloco">--</b></div>
+      <div class="mini"><span class="rot">Taxa 30 min</span><b id="taxa30">--</b></div>
+      <div class="mini"><span class="rot">Hash da rede</span><b id="hashRede">--</b></div>
+    </div>
+    <div class="linha" style="justify-content:space-between"><span><span class="rot">Dificuldade</span> <b id="dif">--</b></span><span class="info" id="ajuste">--</span></div>
+    <div class="rot" id="halvingTxt">Halving</div>
+    <div class="trilho"><div class="g-azul" id="barraHalving"></div></div>
+  </section>
+
+  <section class="c" id="taxas">
+    <h2><svg class="ic" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>5. TAXAS<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="rot">sat/vB para entrar num bloco</div>
+    <div id="listaTaxas" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="info" id="taxaInfo">--</div>
+  </section>
+
+  <section class="c" id="relogio">
+    <h2><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>6. RELÓGIO<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div style="text-align:center"><div style="font-size:64px;font-weight:800;line-height:1.1" id="hora">--:--</div><div class="azul" id="data">--</div></div>
+    <div class="dupla"><div><b class="laranja" id="precoRel">--</b><div class="rot azul">Valor do BTC</div></div><div><b id="khsRel">--</b><div class="rot azul">Velocidade</div></div></div>
+  </section>
+
+  <section class="c" id="aparelho">
+    <h2><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 6h6M9 10h6"/></svg>7. APARELHO<span class="selo"><i></i><span class="est">...</span></span></h2>
+    <div class="tres">
+      <div class="mini"><span class="rot">Temperatura</span><b id="temp">--</b><div class="trilho" style="height:4px;margin-top:6px"><div class="g-verde" id="barraTemp"></div></div></div>
+      <div class="mini"><span class="rot">Sinal Wi-Fi</span><b id="rssi">--</b><div class="trilho" style="height:4px;margin-top:6px"><div class="g-verde" id="barraRssi"></div></div></div>
+      <div class="mini"><span class="rot">Memória livre</span><b id="heap">--</b><div class="trilho" style="height:4px;margin-top:6px"><div class="g-verde" id="barraHeap"></div></div></div>
+    </div>
+    <dl class="kv">
+      <dt>SHA em hardware</dt><dd id="sha">--</dd>
+      <dt>IP / Wi-Fi</dt><dd id="rede2">--</dd>
+      <dt>Versão</dt><dd id="versao2">--</dd>
+    </dl>
+  </section>
+
+  <section class="c" id="ajustes">
+    <h2><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>8. AJUSTES</h2>
+    <dl class="kv">
+      <dt>Pool</dt><dd id="cfgPool">--</dd>
+      <dt>Reserva</dt><dd id="cfgPool2">--</dd>
+      <dt>Carteira</dt><dd id="cfgCarteira">--</dd>
+      <dt>Fuso</dt><dd id="cfgFuso">--</dd>
+    </dl>
+    <p class="info" style="margin:0">Para mudar: ligue o NerdMiner segurando a tecla de cima. Ele abre a rede de ajuste e mostra um QR para o celular entrar nela.</p>
+  </section>
+</main>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 0) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+function grande(v) {
+  const s = [[1e12, ' tri'], [1e9, ' bi'], [1e6, ' mi'], [1e3, ' mil']];
+  for (const [b, t] of s) if (v >= b) { const x = v / b; return fmt(x, x < 10 ? 1 : 0) + t; }
+  return fmt(v, v < 10 ? 1 : 0);
+}
+function tempo(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, x = s % 60;
+  return `${d}d ${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}`;
+}
+const cores = { 'ATIVO': 'var(--verde)', 'CONECTANDO': 'var(--amarelo)', 'AJUSTE': 'var(--amarelo)', 'SEM WI-FI': 'var(--vermelho)' };
+let recordeVisto = null, recordeAte = 0;
+
+function desenhaGrafico(h) {
+  const g = $('grafico');
+  if (!h || h.length < 2) { g.innerHTML = '<text x="100" y="45" fill="#9FB0C8" font-size="12" text-anchor="middle">medindo...</text>'; return; }
+  let mn = Math.min(...h), mx = Math.max(...h);
+  if (mx - mn < 2) { mx += 1; mn = Math.max(0, mn - 1); }
+  const pts = h.map((v, i) => `${(i * 200 / 59).toFixed(1)},${(76 - (v - mn) * 70 / (mx - mn)).toFixed(1)}`);
+  const ult = pts[pts.length - 1].split(',')[0];
+  g.innerHTML = `<polygon points="0,80 ${pts.join(' ')} ${ult},80" fill="rgba(34,197,94,.18)"/><polyline points="${pts.join(' ')}" fill="none" stroke="#22C55E" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+
+function aplica(d) {
+  const cor = cores[d.estado] || 'var(--amarelo)';
+  document.querySelectorAll('.selo').forEach(e => { e.style.color = cor; e.querySelector('.est').textContent = d.estado; });
+  $('estadoTopo').innerHTML = `<i class="ponto" style="background:${cor}"></i><span>${d.estado === 'ATIVO' ? 'Minerando' : d.estado}</span>`;
+  $('horaTopo').textContent = d.hora; $('dataTopo').textContent = d.data;
+  $('versao').textContent = d.v; $('versao2').textContent = d.v;
+
+  $('khs').textContent = fmt(d.khs, 1);
+  desenhaGrafico(d.hist);
+  $('melhor').textContent = d.melhor; $('partes').textContent = d.partes; $('ligado').textContent = tempo(d.ligado);
+  if (recordeVisto === null) recordeVisto = d.melhorNum;
+  if (d.melhorNum > recordeVisto) { recordeVisto = d.melhorNum; recordeAte = Date.now() + 15 * 60 * 1000; }
+  const novo = Date.now() < recordeAte;
+  $('faixa').classList.toggle('novo', novo);
+  $('recorde').textContent = (novo ? 'NOVO RECORDE: ' : 'RECORDE: ') + d.melhor;
+
+  if (d.khs > 0 && d.difNum > 0) {
+    const anos = d.difNum * 4294967296 / (d.khs * 1000 * 31557600);
+    $('chance').textContent = '1 em ' + grande(anos);
+    $('anos').textContent = `1 bloco a cada ~${grande(anos)} anos`;
+    const frac = d.melhorNum > 1 ? Math.min(1, Math.log10(d.melhorNum) / Math.log10(d.difNum)) : 0;
+    $('barraSorte').style.width = (frac * 100).toFixed(1) + '%';
+  } else { $('chance').textContent = 'aguardando dados'; }
+  $('sorteMelhor').textContent = d.melhor; $('sorteAlvo').textContent = d.dificuldade || '--';
+
+  $('poolTipo').textContent = d.pool.reserva ? 'Pool reserva' : 'Pool principal';
+  $('poolEnd').textContent = `${d.pool.end}:${d.pool.porta}`;
+  $('poolMin').textContent = d.pool.mineradores; $('poolHash').textContent = d.pool.hash ? d.pool.hash + 'H/s' : '--';
+  $('poolMelhor').textContent = d.pool.melhor || '--';
+  $('poolCont').textContent = `Modelos ${d.modelos} · Partes ${d.partes} · Blocos ${d.blocos}`;
+  $('poolCon').innerHTML = d.pool.quedas === 0 ? '<i class="ponto" style="background:var(--verde)"></i> Conexão estável' :
+    `<i class="ponto" style="background:var(--amarelo)"></i> Conexão instável: ${d.pool.quedas} quedas na última hora`;
+
+  const preco = d.moeda + ' ' + fmt(d.preco);
+  $('preco').textContent = preco; $('precoRel').textContent = preco;
+  const sobe = d.var24h >= 0;
+  $('var24').innerHTML = `<b class="${sobe ? 'verde' : 'vermelho'}">${sobe ? '▲' : '▼'} ${fmt(d.var24h, 2)}%</b> <span class="info">(24h)</span>`;
+  $('bloco').textContent = fmt(d.bloco); $('taxa30').textContent = d.taxas[1] + ' sat/vB';
+  $('hashRede').textContent = d.hashRede ? d.hashRede + ' EH/s' : '--';
+  $('dif').textContent = d.dificuldade || '--';
+  $('ajuste').textContent = `próximo ajuste ${d.ajuste >= 0 ? '+' : ''}${fmt(d.ajuste, 1)}% (estimativa)`;
+  $('halvingTxt').textContent = `Halving: faltam ${fmt(d.halving.faltam)} blocos (${fmt(d.halving.pct, 1)}%)`;
+  $('barraHalving').style.width = d.halving.pct + '%';
+
+  const nomes = ['Próximo', '30 min', '1 hora', 'Barata', 'Mínima'];
+  const classes = ['g-laranja', 'g-azul', 'g-azul', 'g-azul', 'g-roxo'];
+  const mx = Math.max(1, ...d.taxas);
+  $('listaTaxas').innerHTML = d.taxas.map((v, i) =>
+    `<div class="taxa"><span>${nomes[i]}</span><div class="trilho"><div class="${classes[i]}" style="width:${(v * 100 / mx).toFixed(0)}%"></div></div><b>${v}</b></div>`).join('');
+  $('taxaInfo').textContent = `Para entrar em ~30 min: ${d.taxas[1]} sat/vB`;
+
+  $('hora').textContent = d.hora; $('data').textContent = d.data; $('khsRel').textContent = fmt(d.khs, 1) + ' kH/s';
+
+  $('temp').textContent = d.temp + ' °C'; $('barraTemp').style.width = Math.min(100, d.temp * 100 / 85) + '%';
+  $('barraTemp').className = d.temp < 70 ? 'g-verde' : 'g-laranja';
+  $('rssi').textContent = d.rssi + ' dBm'; $('barraRssi').style.width = Math.max(0, Math.min(100, (d.rssi + 100) * 100 / 70)) + '%';
+  $('heap').textContent = fmt(d.heap / 1024) + ' kB'; $('barraHeap').style.width = (d.heap * 100 / d.heapTotal) + '%';
+  $('sha').textContent = d.shaRapido ? `rápido, ${d.khsRapido} kH/s (original ${d.khsOriginal})` : `original, ${d.khsOriginal} kH/s`;
+  $('rede2').textContent = `${d.ip} · ${d.ssid}`;
+
+  $('cfgPool').textContent = `${d.config.pool}:${d.config.porta}`;
+  $('cfgPool2').textContent = d.config.pool2 ? `${d.config.pool2}:${d.config.porta2}` : 'nenhuma';
+  $('cfgCarteira').textContent = d.config.carteira;
+  $('cfgFuso').textContent = 'UTC' + (d.config.fuso >= 0 ? '+' : '') + d.config.fuso;
+}
+
+async function atualiza() {
+  try {
+    const r = await fetch('/api/estado', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.v) aplica(d);
+  } catch (e) {
+    document.querySelectorAll('.selo').forEach(x => { x.style.color = 'var(--vermelho)'; x.querySelector('.est').textContent = 'SEM RESPOSTA'; });
+  }
+}
+document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => {
+  document.querySelectorAll('nav a').forEach(b => b.classList.remove('ativo')); a.classList.add('ativo');
+}));
+atualiza();
+setInterval(atualiza, 5000);
+</script>
+</body>
+</html>
+)PAINEL";
+
+#endif

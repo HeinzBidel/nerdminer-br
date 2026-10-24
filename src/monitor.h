@@ -18,12 +18,14 @@
 //#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT" -- updates infrequently
 #ifdef BRASIL
 // Nosso firmware: preco em reais
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl"
+#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true"
 #define PRICE_KEY "brl"
+#define PRICE_KEY_24H "brl_24h_change"
 #define PRICE_FORMAT "R$%u"
 #else
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"
 #define PRICE_KEY "usd"
+#define PRICE_KEY_24H "usd_24h_change"
 #define PRICE_FORMAT "$%u"
 #endif
 
@@ -61,6 +63,7 @@ typedef struct{
 
 typedef struct{
   double netDifficulty;  // Nosso firmware: dificuldade da rede em numero (0 = ainda sem dado)
+  double difficultyChange; // Nosso firmware: estimativa do proximo ajuste, em %
   String globalHash; //hexahashes
   String currentBlock;
   String difficulty;
@@ -146,6 +149,13 @@ pool_data getPoolData(void);
 double lastHashRateKHs(void);
 uint8_t hashRateHistory(float *out, uint8_t max);
 double networkDifficulty(void);
+double networkDifficultyChange(void);   // % estimado do proximo ajuste
+float bitcoinChange24h(void);           // variacao do preco em 24 h, em %
+// Painel web: o monitor monta o JSON a cada segundo; o servidor so copia
+#define PAINEL_JSON_MAX 3072
+void painelAtualiza(void);
+size_t painelCopiaJson(char *destino, size_t max);
+void painelMarcaVisita(void);
 
 clock_data_t getClockData_t(unsigned long mElapsed);
 String getPoolAPIUrl(void);

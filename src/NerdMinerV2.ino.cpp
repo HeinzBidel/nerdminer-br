@@ -15,6 +15,7 @@
 #include "drivers/storage/SDCard.h"
 #include "ShaTests/nerdSHA_HWTest.h"
 #include "timeconst.h"
+#include "painelWeb.h"
 
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
@@ -215,6 +216,7 @@ void loop() {
   touchHandler.isTouched();
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
+  painelWebProcessa(); // Nosso firmware: painel web na rede de casa
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

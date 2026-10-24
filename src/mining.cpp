@@ -83,6 +83,25 @@ static uint8_t s_pool_index = 0;
 static uint8_t s_pool_fails = 0;
 static bool s_pool_was_up = false; //Current pool got connected at least once
 
+// Quedas recentes da conexao com a pool (para "conexao estavel" na interface)
+#define POOL_QUEDAS_MAX 8
+static uint32_t s_quedas[POOL_QUEDAS_MAX] = {0};
+static uint8_t s_quedas_i = 0;
+
+static void registraQueda(void) {
+  s_quedas[s_quedas_i] = millis() | 1; //0 = vaga livre
+  s_quedas_i = (s_quedas_i + 1) % POOL_QUEDAS_MAX;
+}
+
+int poolQuedasUltimaHora(void) {
+  int n = 0;
+  uint32_t agora = millis();
+  for (int i = 0; i < POOL_QUEDAS_MAX; ++i)
+    if (s_quedas[i] != 0 && agora - s_quedas[i] < 3600000UL)
+      n++;
+  return n;
+}
+
 uint8_t activePoolIndex(void) {
   return s_pool_index;
 }
@@ -157,6 +176,7 @@ bool checkPoolConnection(void) {
     Serial.println("Imposible to connect to : " + activePoolAddress());
     WiFi.hostByName(activePoolAddress().c_str(), serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString().c_str());
+    registraQueda();
     poolFailed(1);
     return false;
   }
@@ -378,6 +398,7 @@ void runStratumWorker(void *name) {
         last_job_time = time_now;
       if (time_now >= last_job_time + 10*60*1000)  //10minutes without job
       {
+        registraQueda();
         poolFailed(POOL_FAILS_TO_SWITCH); //Pool alive but useless: switch now
         client.stop();
         isMinerSuscribed=false;
@@ -1414,6 +1435,7 @@ void runMonitor(void *name)
       }
 
       drawCurrentScreen(mElapsed);
+      painelAtualiza(); //Nosso firmware: JSON do painel web
 
       // Monitor state when hashrate is 0.0
       if (elapsedKHs == 0)

@@ -32,6 +32,13 @@ extern monitor_data mMonitor;
 
 nvMemory nvMem;
 
+// Nosso firmware: nome da rede de ajuste em uso, para o QR da tela
+static String s_apNome = DEFAULT_SSID;
+
+String wifiAjusteNome(void) {
+    return s_apNome;
+}
+
 extern SDCard SDCrd;
 
 String readCustomAPName() {
@@ -140,6 +147,7 @@ void init_WifiManager()
     // Check for custom AP name from flasher config, otherwise use default
     String customAPName = readCustomAPName();
     const char* apName = customAPName.length() > 0 ? customAPName.c_str() : DEFAULT_SSID;
+    s_apNome = apName;
 
     //Init pin 15 to eneble 5V external power (LilyGo bug)
 #ifdef PIN_ENABLE5V

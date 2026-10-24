@@ -5,9 +5,11 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <list>
+#include <mutex>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "version.h"
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
 
@@ -32,6 +34,7 @@ bool invertColors = false;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 unsigned int bitcoin_price=0;
+float bitcoin_change_24h = 0.0f; // Nosso firmware
 String current_block = "793261";
 global_data gData;
 pool_data pData;
@@ -91,6 +94,19 @@ void updateGlobalData(void){
         http.end();
 
       
+        //Nosso firmware: estimativa do proximo ajuste de dificuldade
+        http.begin(getDifficulty);
+        httpCode = http.GET();
+        if (httpCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+            StaticJsonDocument<64> filter;
+            filter["difficultyChange"] = true;
+            StaticJsonDocument<128> doc;
+            deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+            if (doc.containsKey("difficultyChange")) gData.difficultyChange = doc["difficultyChange"].as<double>();
+        }
+        http.end();
+
         //Make third API call to get fees
         http.begin(getFees);
         httpCode = http.GET();
@@ -181,6 +197,8 @@ String getBTCprice(void){
           
             if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey(PRICE_KEY)) {
                 bitcoin_price = doc["bitcoin"][PRICE_KEY];
+                if (doc["bitcoin"].containsKey(PRICE_KEY_24H))
+                    bitcoin_change_24h = doc["bitcoin"][PRICE_KEY_24H].as<float>();
             }
 
             doc.clear();
@@ -293,6 +311,16 @@ double networkDifficulty(void)
 {
   updateGlobalData();
   return gData.netDifficulty;
+}
+
+double networkDifficultyChange(void)
+{
+  return gData.difficultyChange;
+}
+
+float bitcoinChange24h(void)
+{
+  return bitcoin_change_24h;
 }
 
 static void pushHashRateHistory(double khs)
@@ -556,4 +584,104 @@ pool_data getPoolData(void){
         } 
     }
     return pData;
+}
+
+/********************* Nosso firmware: dados do painel web *********************/
+
+static std::mutex s_painel_mutex;
+static char s_painel_json[PAINEL_JSON_MAX] = "{}";
+static uint32_t s_painel_visita = 0;
+
+void painelMarcaVisita(void)
+{
+  s_painel_visita = millis();
+}
+
+size_t painelCopiaJson(char *destino, size_t max)
+{
+  std::lock_guard<std::mutex> lock(s_painel_mutex);
+  strncpy(destino, s_painel_json, max - 1);
+  destino[max - 1] = 0;
+  return strlen(destino);
+}
+
+static String jsonTexto(const String &s)
+{
+  String r = "\"";
+  for (unsigned int i = 0; i < s.length(); ++i)
+  {
+    char c = s[i];
+    if (c == '"' || c == '\\') { r += '\\'; r += c; }
+    else if ((uint8_t)c >= 0x20) r += c;
+  }
+  return r + "\"";
+}
+
+// Chamado pelo runMonitor a cada segundo. So busca dados na internet se alguem abriu o painel nos ultimos 2 min.
+void painelAtualiza(void)
+{
+  if (s_painel_visita == 0 || millis() - s_painel_visita > 120000UL)
+    return;
+
+  updateGlobalData();
+  getBTCprice();
+  String bloco = getBlockHeight();
+  getPoolData();
+
+  const char *estado = "AJUSTE";
+  if (WiFi.status() != WL_CONNECTED) estado = "SEM WI-FI";
+  else if (mMonitor.NerdStatus == NM_hashing) estado = "ATIVO";
+  else if (mMonitor.NerdStatus == NM_Connecting) estado = "CONECTANDO";
+
+  char melhor[16] = {0};
+  suffix_string(best_diff, melhor, sizeof(melhor), 0);
+
+  float hist[HASHRATE_HISTORY];
+  uint8_t n = hashRateHistory(hist, HASHRATE_HISTORY);
+  String h = "[";
+  for (uint8_t i = 0; i < n; ++i)
+  {
+    if (i) h += ",";
+    h += String(hist[i], 1);
+  }
+  h += "]";
+
+  uint32_t khsOriginal = 0, khsRapido = 0;
+  hwShaSelfTestKHs(khsOriginal, khsRapido);
+
+  unsigned long blocoN = bloco.toInt();
+  unsigned long faltam = blocoN ? (((blocoN / HALVING_BLOCKS) + 1) * HALVING_BLOCKS) - blocoN : 0;
+
+  String j;
+  j.reserve(2048);
+  j += "{\"v\":" + jsonTexto(CURRENT_VERSION);
+  j += ",\"estado\":" + jsonTexto(estado);
+  j += ",\"hora\":" + jsonTexto(getTime()) + ",\"data\":" + jsonTexto(getDate());
+  j += ",\"khs\":" + String(lastHashRateKHs(), 1) + ",\"hist\":" + h;
+  j += ",\"melhor\":" + jsonTexto(melhor) + ",\"melhorNum\":" + String(best_diff, 0);
+  j += ",\"partes\":" + String(shares) + ",\"blocos\":" + String(valids) + ",\"modelos\":" + String(templates);
+  j += ",\"ligado\":" + String((uint32_t)upTime);
+  j += ",\"temp\":" + String(temperatureRead(), 0) + ",\"heap\":" + String(ESP.getFreeHeap()) + ",\"heapTotal\":" + String(ESP.getHeapSize());
+  j += ",\"rssi\":" + String(WiFi.RSSI()) + ",\"ip\":" + jsonTexto(WiFi.localIP().toString()) + ",\"ssid\":" + jsonTexto(WiFi.SSID());
+  j += ",\"shaRapido\":" + String(hwShaFastPath() ? "true" : "false") + ",\"khsOriginal\":" + String(khsOriginal) + ",\"khsRapido\":" + String(khsRapido);
+  j += ",\"pool\":{\"end\":" + jsonTexto(activePoolAddress()) + ",\"porta\":" + String(activePoolPort());
+  j += ",\"reserva\":" + String(activePoolIndex() == 1 ? "true" : "false") + ",\"mineradores\":" + String(pData.workersCount);
+  j += ",\"hash\":" + jsonTexto(pData.workersHash) + ",\"melhor\":" + jsonTexto(pData.bestDifficulty) + ",\"quedas\":" + String(poolQuedasUltimaHora()) + "}";
+  j += ",\"preco\":" + String(bitcoin_price) + ",\"moeda\":" + jsonTexto(String(PRICE_FORMAT).substring(0, String(PRICE_FORMAT).indexOf('%')));
+  j += ",\"var24h\":" + String(bitcoin_change_24h, 2) + ",\"bloco\":" + String(blocoN);
+  j += ",\"hashRede\":" + jsonTexto(gData.globalHash) + ",\"dificuldade\":" + jsonTexto(gData.difficulty);
+  j += ",\"difNum\":" + String(gData.netDifficulty, 0) + ",\"ajuste\":" + String(gData.difficultyChange, 2);
+#ifdef SCREEN_FEES_ENABLE
+  j += ",\"taxas\":[" + String(gData.fastestFee) + "," + String(gData.halfHourFee) + "," + String(gData.hourFee) + "," + String(gData.economyFee) + "," + String(gData.minimumFee) + "]";
+#else
+  j += ",\"taxas\":[0," + String(gData.halfHourFee) + ",0,0,0]";
+#endif
+  j += ",\"halving\":{\"faltam\":" + String(faltam) + ",\"pct\":" + String(blocoN ? 100.0 * (HALVING_BLOCKS - faltam) / HALVING_BLOCKS : 0.0, 1) + "}";
+  j += ",\"config\":{\"pool\":" + jsonTexto(Settings.PoolAddress) + ",\"porta\":" + String(Settings.PoolPort);
+  j += ",\"pool2\":" + jsonTexto(Settings.PoolAddress2) + ",\"porta2\":" + String(Settings.PoolPort2);
+  j += ",\"carteira\":" + jsonTexto(String(Settings.BtcWallet)) + ",\"fuso\":" + String(Settings.Timezone) + "}}";
+
+  std::lock_guard<std::mutex> lock(s_painel_mutex);
+  strncpy(s_painel_json, j.c_str(), PAINEL_JSON_MAX - 1);
+  s_painel_json[PAINEL_JSON_MAX - 1] = 0;
 }
